@@ -2,6 +2,7 @@
 HyperLogLog-based set cardinality estimation library
 
 This library estimates the number of unique elements in a set, in a quick and memory-efficient manner.  It's based on the following:
+
 1. Flajolet et al., "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm", DMTCS proc. AH 2007, http://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf
 2. Heule, Nunkesser and Hall 2013, "HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm", http://static.googleusercontent.com/external_content/untrusted_dlcp/research.google.com/en/us/pubs/archive/40671.pdf
 
