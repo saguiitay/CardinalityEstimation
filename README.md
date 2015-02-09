@@ -20,3 +20,9 @@ estimator.Add("George Michael");
 
 ulong numberOfuniqueElements = estimator.Count(); // will be 3
 ```
+
+## Nuget Package
+This code is available as the Nuget package [`CardinalityEstimation`](https://www.nuget.org/packages/CardinalityEstimation/).  To install, run the following command in the Package Manager Console:
+```
+Install-Package CardinalityEstimation
+```
