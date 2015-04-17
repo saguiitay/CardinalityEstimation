@@ -51,7 +51,9 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BiasCorrectionTests.cs" />
+    <Compile Include="CardinalityEstimatorSerializerTests.cs" />
     <Compile Include="CardinalityEstimatorTests.cs" />
+    <Compile Include="DictionaryUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

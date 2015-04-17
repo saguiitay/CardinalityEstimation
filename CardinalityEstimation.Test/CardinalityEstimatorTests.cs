@@ -23,6 +23,8 @@
     SOFTWARE.
 */
 
+using System.Linq;
+
 namespace CardinalityEstimation.Test
 {
     using System;
@@ -114,6 +116,56 @@ namespace CardinalityEstimation.Test
             const double stdError = 0.008125;
             const int cardinality = 1000000;
             RunTest(stdError, cardinality, numHllInstances: 60);
+        }
+
+        [TestMethod]
+        public void TestRecreationFromData()
+        {
+            RunRecreationFromData(10);
+            RunRecreationFromData(100);
+            RunRecreationFromData(1000);
+            RunRecreationFromData(10000);
+            RunRecreationFromData(100000);
+            RunRecreationFromData(1000000);
+        }
+
+        private void RunRecreationFromData(int cardinality = 1000000)
+        {
+            CardinalityEstimator hll = new CardinalityEstimator();
+
+            byte[] nextMember = new byte[ElementSizeInBytes];
+            for (int i = 0; i < cardinality; i++)
+            {
+                Rand.NextBytes(nextMember);
+                hll.Add(nextMember);
+            }
+
+            var data = hll.GetData();
+
+            var hll2 = new CardinalityEstimator(data);
+            var data2 = hll2.GetData();
+
+            Assert.AreEqual(data.bitsPerIndex, data2.bitsPerIndex);
+            Assert.AreEqual(data.isSparse, data2.isSparse);
+
+            Assert.IsTrue((data.directCount != null && data2.directCount != null) || (data.directCount == null && data2.directCount == null));
+            Assert.IsTrue((data.lookupSparse != null && data2.lookupSparse != null) || (data.lookupSparse == null && data2.lookupSparse == null));
+            Assert.IsTrue((data.lookupDense != null && data2.lookupDense != null) || (data.lookupDense == null && data2.lookupDense == null));
+
+            if (data.directCount != null)
+            {
+                // DirectCount are subsets of each-other => they are the same set
+                Assert.IsTrue(data.directCount.IsSubsetOf(data2.directCount) && data2.directCount.IsSubsetOf(data.directCount));
+            }
+            if (data.lookupSparse != null)
+            {
+                Assert.IsTrue(data.lookupSparse.DictionaryEqual(data2.lookupSparse));
+            }
+            if (data.lookupDense != null)
+            {
+                Assert.IsTrue(data.lookupDense.SequenceEqual(data2.lookupDense));
+            }
+
         }
 
         [TestMethod]

@@ -118,6 +118,38 @@ namespace CardinalityEstimation
             }
         }
 
+        internal CardinalityEstimator(CardinalityEstimatorData data)
+        {
+            this.bitsPerIndex = data.bitsPerIndex;
+            this.bitsForHll = 64 - this.bitsPerIndex;
+            this.m = (int)Math.Pow(2, this.bitsPerIndex);
+            this.alphaM = GetAlphaM(this.m);
+            this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
+
+            // Init the sparse representation
+            this.isSparse = data.isSparse;
+            this.lookupSparse = data.lookupSparse != null ? new Dictionary<ushort, byte>(data.lookupSparse) : null;
+            this.lookupDense = data.lookupDense;
+
+            // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
+            this.sparseMaxElements = Math.Max(0, this.m / 15 - 10);
+            // If necessary, switch to the dense representation
+            if (this.sparseMaxElements <= 0)
+            {
+                SwitchToDenseRepresentation();
+            }
+
+            if (data.directCount != null)
+            {
+                this.lookupSparse = new Dictionary<ushort, byte>();
+                foreach (var element in data.directCount)
+                    AddElementHash(element);
+            }
+            else
+                directCount = null;
+
+        }
+
         public void Add(string element)
         {
             ulong hashCode = GetHashCode(Encoding.UTF8.GetBytes(element));
@@ -496,6 +528,27 @@ namespace CardinalityEstimation
             }
             this.lookupSparse = null;
             this.isSparse = false;
+        }
+
+        internal CardinalityEstimatorData GetData()
+        {
+            return new CardinalityEstimatorData
+                {
+                    bitsPerIndex = bitsPerIndex,
+                    directCount = directCount,
+                    isSparse = isSparse,
+                    lookupDense = lookupDense,
+                    lookupSparse = lookupSparse
+                };
+        }
+
+        internal struct CardinalityEstimatorData
+        {
+            public int bitsPerIndex;
+            public bool isSparse;
+            public HashSet<ulong> directCount;
+            public IDictionary<ushort, byte> lookupSparse;
+            public byte[] lookupDense;
         }
     }
 }
