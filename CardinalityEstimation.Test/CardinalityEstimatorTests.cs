@@ -56,11 +56,11 @@ namespace CardinalityEstimation.Test
         {
             // simulate a 64 bit hash and 14 bits for indexing
             const int bitsToCount = 64 - 14;
-            Assert.AreEqual(51, CardinalityEstimator.GetSigma(0, bitsToCount));
-            Assert.AreEqual(50, CardinalityEstimator.GetSigma(1, bitsToCount));
-            Assert.AreEqual(47, CardinalityEstimator.GetSigma(8, bitsToCount));
-            Assert.AreEqual(1, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount) - 1), bitsToCount));
-            Assert.AreEqual(51, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount + 1)), bitsToCount));
+            Assert.AreEqual(51, CardinalityEstimator<int>.GetSigma(0, bitsToCount));
+            Assert.AreEqual(50, CardinalityEstimator<int>.GetSigma(1, bitsToCount));
+            Assert.AreEqual(47, CardinalityEstimator<int>.GetSigma(8, bitsToCount));
+            Assert.AreEqual(1, CardinalityEstimator<int>.GetSigma((ulong)(Math.Pow(2, bitsToCount) - 1), bitsToCount));
+            Assert.AreEqual(51, CardinalityEstimator<int>.GetSigma((ulong)(Math.Pow(2, bitsToCount + 1)), bitsToCount));
         }
 
         [TestMethod]
@@ -144,7 +144,7 @@ namespace CardinalityEstimation.Test
         [Ignore] // Test runtime is long
         public void ReportAccuracy()
         {
-            CardinalityEstimator hll = new CardinalityEstimator();
+            CardinalityEstimator<byte[]> hll = new CardinalityEstimator<byte[]>();
             double maxError = 0;
             int worstMember = 0;
             byte[] nextMember = new byte[ElementSizeInBytes];
@@ -179,10 +179,10 @@ namespace CardinalityEstimation.Test
             long gcMemoryAtStart = GetGcMemory();
 
             // init HLLs
-            CardinalityEstimator[] hlls = new CardinalityEstimator[numHllInstances];
+            CardinalityEstimator<byte[]>[] hlls = new CardinalityEstimator<byte[]>[numHllInstances];
             for (int i = 0; i < numHllInstances; i++)
             {
-                hlls[i] = new CardinalityEstimator(b);
+                hlls[i] = new CardinalityEstimator<byte[]>(b);
             }
 
             byte[] nextMember = new byte[ElementSizeInBytes];
@@ -199,7 +199,7 @@ namespace CardinalityEstimation.Test
             ReportMemoryCost(gcMemoryAtStart); // done here so references can't be GC'ed yet
 
             // Merge
-            CardinalityEstimator mergedHll = CardinalityEstimator.Merge(hlls);
+            CardinalityEstimator<byte[]> mergedHll = CardinalityEstimator<byte[]>.Merge(hlls);
             Console.WriteLine("Run time: {0}", runStopwatch.Elapsed);
             Console.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
 
@@ -220,7 +220,7 @@ namespace CardinalityEstimation.Test
         private static int GetAccuracyInBits(double stdError)
         {
             double sqrtm = 1.04/stdError;
-            int b = (int) Math.Ceiling(CardinalityEstimator.Log2(sqrtm*sqrtm));
+            int b = (int) Math.Ceiling(CardinalityEstimator<int>.Log2(sqrtm*sqrtm));
             return b;
         }
 

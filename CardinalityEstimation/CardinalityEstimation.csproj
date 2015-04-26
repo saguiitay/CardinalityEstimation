@@ -40,7 +40,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BiasCorrection.cs" />
+    <Compile Include="DefaultBytesConverter.cs" />
     <Compile Include="CardinalityEstimator.cs" />
+    <Compile Include="IBytesConverter.cs" />
     <Compile Include="ICardinalityEstimator.cs" />
     <Compile Include="InternalsVisible.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

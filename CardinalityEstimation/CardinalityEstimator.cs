@@ -45,9 +45,7 @@ namespace CardinalityEstimation
     ///     3. Estimation is perfect up to 100 elements, then approximate
     /// </remarks>
     [Serializable]
-    public class CardinalityEstimator : ICardinalityEstimator<string>, ICardinalityEstimator<int>, ICardinalityEstimator<uint>,
-        ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
-        ICardinalityEstimator<byte[]>
+    public class CardinalityEstimator<T> : ICardinalityEstimator<T>
     {
         /// <summary> Number of bits for indexing HLL substreams - the number of estimators is 2^bitsPerIndex </summary>
         private readonly int bitsPerIndex;
@@ -82,6 +80,9 @@ namespace CardinalityEstimation
         /// <summary> Max number of elements to hold in the direct representation </summary>
         private const int DirectCounterMaxElements = 100;
 
+        /// <summary> Convertor used to convert the counted elements into byte[]</summary>
+        private readonly IBytesConverter bytesConverter;
+
         /// <summary>
         ///     C'tor
         /// </summary>
@@ -92,12 +93,14 @@ namespace CardinalityEstimation
         ///     and uses up to ~16kB of memory.  b=4 yields less than ~100% error and uses less than 1kB. b=16 uses up to ~64kB and usually yields 1%
         ///     error or less
         /// </param>
-        public CardinalityEstimator(int b = 14)
+        public CardinalityEstimator(int b = 14, IBytesConverter bytesConverter = null)
         {
             if (b < 4 || b > 16)
             {
                 throw new ArgumentOutOfRangeException("b", "Accuracy out of range, legal range is 4 <= b <= 16");
             }
+
+            this.bytesConverter = bytesConverter ?? new DefaultBytesConverter();
 
             this.bitsPerIndex = b;
             this.bitsForHll = 64 - b;
@@ -118,54 +121,11 @@ namespace CardinalityEstimation
             }
         }
 
-        public void Add(string element)
+        public void Add(T element)
         {
-            ulong hashCode = GetHashCode(Encoding.UTF8.GetBytes(element));
+            ulong hashCode = GetHashCode(bytesConverter.GetBytes(element));
             AddElementHash(hashCode);
         }
-
-        public void Add(int element)
-        {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
-        }
-
-        public void Add(uint element)
-        {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
-        }
-
-        public void Add(long element)
-        {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
-        }
-
-        public void Add(ulong element)
-        {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
-        }
-
-        public void Add(float element)
-        {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
-        }
-
-        public void Add(double element)
-        {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
-        }
-
-        public void Add(byte[] element)
-        {
-            ulong hashCode = GetHashCode(element);
-            AddElementHash(hashCode);
-        }
-
 
         public ulong Count()
         {
@@ -231,7 +191,7 @@ namespace CardinalityEstimation
         ///     Merges the given <paramref name="other" /> CardinalityEstimator instance into this one
         /// </summary>
         /// <param name="other">another instance of CardinalityEstimator</param>
-        public void Merge(CardinalityEstimator other)
+        public void Merge(CardinalityEstimator<T> other)
         {
             if (other == null)
             {
@@ -304,16 +264,16 @@ namespace CardinalityEstimation
         /// </summary>
         /// <param name="estimators">Instances of CardinalityEstimator</param>
         /// <returns>The merged CardinalityEstimator</returns>
-        public static CardinalityEstimator Merge(IList<CardinalityEstimator> estimators)
+        public static CardinalityEstimator<T> Merge(IList<CardinalityEstimator<T>> estimators)
         {
             if (!estimators.Any())
             {
-                throw new ArgumentException(string.Format("Was asked to merge 0 instances of {0}", typeof (CardinalityEstimator)),
+                throw new ArgumentException(string.Format("Was asked to merge 0 instances of {0}", typeof (CardinalityEstimator<T>)),
                     "estimators");
             }
 
-            CardinalityEstimator ans = new CardinalityEstimator(estimators[0].bitsPerIndex);
-            foreach (CardinalityEstimator estimator in estimators)
+            CardinalityEstimator<T> ans = new CardinalityEstimator<T>(estimators[0].bitsPerIndex);
+            foreach (CardinalityEstimator<T> estimator in estimators)
             {
                 ans.Merge(estimator);
             }
