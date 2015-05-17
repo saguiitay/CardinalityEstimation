@@ -1,27 +1,27 @@
-﻿/*  
-    See https://github.com/Microsoft/CardinalityEstimation.
-    The MIT License (MIT)
-
-    Copyright (c) 2015 Microsoft
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-*/
+﻿// /*  
+//     See https://github.com/Microsoft/CardinalityEstimation.
+//     The MIT License (MIT)
+// 
+//     Copyright (c) 2015 Microsoft
+// 
+//     Permission is hereby granted, free of charge, to any person obtaining a copy
+//     of this software and associated documentation files (the "Software"), to deal
+//     in the Software without restriction, including without limitation the rights
+//     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//     copies of the Software, and to permit persons to whom the Software is
+//     furnished to do so, subject to the following conditions:
+// 
+//     The above copyright notice and this permission notice shall be included in all
+//     copies or substantial portions of the Software.
+// 
+//     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//     SOFTWARE.
+// */
 
 namespace CardinalityEstimation
 {
@@ -77,7 +77,7 @@ namespace CardinalityEstimation
         private bool isSparse;
 
         /// <summary> Set for direct counting of elements </summary>
-        private HashSet<ulong> directCount = new HashSet<ulong>();
+        private HashSet<ulong> directCount;
 
         /// <summary> Max number of elements to hold in the direct representation </summary>
         private const int DirectCounterMaxElements = 100;
@@ -92,22 +92,26 @@ namespace CardinalityEstimation
         ///     and uses up to ~16kB of memory.  b=4 yields less than ~100% error and uses less than 1kB. b=16 uses up to ~64kB and usually yields 1%
         ///     error or less
         /// </param>
-        public CardinalityEstimator(int b = 14)
-        {
-            if (b < 4 || b > 16)
-            {
-                throw new ArgumentOutOfRangeException("b", "Accuracy out of range, legal range is 4 <= b <= 16");
-            }
+        public CardinalityEstimator(int b = 14) : this(CreateEmptyState(b)) {}
 
-            this.bitsPerIndex = b;
-            this.bitsForHll = 64 - b;
-            this.m = (int) Math.Pow(2, b);
+        /// <summary>
+        ///     Creates a CardinalityEstimator with the given <paramref name="state" />
+        /// </summary>
+        internal CardinalityEstimator(CardinalityEstimatorState state)
+        {
+            this.bitsPerIndex = state.BitsPerIndex;
+            this.bitsForHll = 64 - this.bitsPerIndex;
+            this.m = (int) Math.Pow(2, this.bitsPerIndex);
             this.alphaM = GetAlphaM(this.m);
-            this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(b);
+            this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
+
+            // Init the direct count
+            this.directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
 
             // Init the sparse representation
-            this.isSparse = true;
-            this.lookupSparse = new Dictionary<ushort, byte>();
+            this.isSparse = state.IsSparse;
+            this.lookupSparse = state.LookupSparse != null ? new Dictionary<ushort, byte>(state.LookupSparse) : null;
+            this.lookupDense = state.LookupDense;
 
             // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
             this.sparseMaxElements = Math.Max(0, this.m/15 - 10);
@@ -116,38 +120,19 @@ namespace CardinalityEstimation
             {
                 SwitchToDenseRepresentation();
             }
-        }
 
-        internal CardinalityEstimator(CardinalityEstimatorData data)
-        {
-            this.bitsPerIndex = data.bitsPerIndex;
-            this.bitsForHll = 64 - this.bitsPerIndex;
-            this.m = (int)Math.Pow(2, this.bitsPerIndex);
-            this.alphaM = GetAlphaM(this.m);
-            this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
-
-            // Init the sparse representation
-            this.isSparse = data.isSparse;
-            this.lookupSparse = data.lookupSparse != null ? new Dictionary<ushort, byte>(data.lookupSparse) : null;
-            this.lookupDense = data.lookupDense;
-
-            // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
-            this.sparseMaxElements = Math.Max(0, this.m / 15 - 10);
-            // If necessary, switch to the dense representation
-            if (this.sparseMaxElements <= 0)
+            // if DirectCount is not null, populate the HLL lookup with its elements.  This allows serialization to include only directCount
+            if (this.directCount != null)
             {
-                SwitchToDenseRepresentation();
-            }
-
-            if (data.directCount != null)
-            {
-                this.lookupSparse = new Dictionary<ushort, byte>();
-                foreach (var element in data.directCount)
+                foreach (ulong element in this.directCount)
+                {
                     AddElementHash(element);
+                }
             }
             else
-                directCount = null;
-
+            {
+                this.directCount = null;
+            }
         }
 
         public void Add(string element)
@@ -224,7 +209,7 @@ namespace CardinalityEstimation
             else
             {
                 // calc c and Z's inverse
-                for (int i = 0; i < this.m; i++)
+                for (var i = 0; i < this.m; i++)
                 {
                     byte sigma = this.lookupDense[i];
                     zInverse += Math.Pow(2, -sigma);
@@ -309,7 +294,7 @@ namespace CardinalityEstimation
                 }
                 else
                 {
-                    for (int i = 0; i < this.m; i++)
+                    for (var i = 0; i < this.m; i++)
                     {
                         this.lookupDense[i] = Math.Max(this.lookupDense[i], other.lookupDense[i]);
                     }
@@ -344,13 +329,46 @@ namespace CardinalityEstimation
                     "estimators");
             }
 
-            CardinalityEstimator ans = new CardinalityEstimator(estimators[0].bitsPerIndex);
+            var ans = new CardinalityEstimator(estimators[0].bitsPerIndex);
             foreach (CardinalityEstimator estimator in estimators)
             {
                 ans.Merge(estimator);
             }
 
             return ans;
+        }
+
+        internal CardinalityEstimatorState GetState()
+        {
+            return new CardinalityEstimatorState
+            {
+                BitsPerIndex = this.bitsPerIndex,
+                DirectCount = this.directCount,
+                IsSparse = this.isSparse,
+                LookupDense = this.lookupDense,
+                LookupSparse = this.lookupSparse
+            };
+        }
+
+        /// <summary>
+        ///     Creates state for an empty CardinalityEstimator : DirectCount and LookupSparse are empty, LookupDense is null.
+        /// </summary>
+        /// <param name="b"><see cref="CardinalityEstimator(int)" /></param>
+        private static CardinalityEstimatorState CreateEmptyState(int b)
+        {
+            if (b < 4 || b > 16)
+            {
+                throw new ArgumentOutOfRangeException("b", b, "Accuracy out of range, legal range is 4 <= BitsPerIndex <= 16");
+            }
+
+            return new CardinalityEstimatorState
+            {
+                BitsPerIndex = b,
+                DirectCount = new HashSet<ulong>(),
+                IsSparse = true,
+                LookupSparse = new Dictionary<ushort, byte>(),
+                LookupDense = null,
+            };
         }
 
         /// <summary>
@@ -413,7 +431,7 @@ namespace CardinalityEstimation
                 }
             }
 
-            ushort substream = (ushort) (hashCode >> this.bitsForHll);
+            var substream = (ushort) (hashCode >> this.bitsForHll);
             byte sigma = GetSigma(hashCode, this.bitsForHll);
             if (this.isSparse)
             {
@@ -528,27 +546,6 @@ namespace CardinalityEstimation
             }
             this.lookupSparse = null;
             this.isSparse = false;
-        }
-
-        internal CardinalityEstimatorData GetData()
-        {
-            return new CardinalityEstimatorData
-                {
-                    bitsPerIndex = bitsPerIndex,
-                    directCount = directCount,
-                    isSparse = isSparse,
-                    lookupDense = lookupDense,
-                    lookupSparse = lookupSparse
-                };
-        }
-
-        internal struct CardinalityEstimatorData
-        {
-            public int bitsPerIndex;
-            public bool isSparse;
-            public HashSet<ulong> directCount;
-            public IDictionary<ushort, byte> lookupSparse;
-            public byte[] lookupDense;
         }
     }
 }

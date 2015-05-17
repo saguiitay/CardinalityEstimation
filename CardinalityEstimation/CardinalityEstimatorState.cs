@@ -1,4 +1,4 @@
-// /*  
+﻿// /*  
 //     See https://github.com/Microsoft/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -23,43 +23,19 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation.Test
+namespace CardinalityEstimation
 {
     using System.Collections.Generic;
 
-    public static class DictionaryUtils
+    /// <summary>
+    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
+    /// </summary>
+    internal class CardinalityEstimatorState
     {
-        public static bool DictionaryEqual<TKey, TValue>(this IDictionary<TKey, TValue> first, IDictionary<TKey, TValue> second,
-            IEqualityComparer<TValue> valueComparer = null)
-        {
-            if (first == second)
-            {
-                return true;
-            }
-            if ((first == null) || (second == null))
-            {
-                return false;
-            }
-            if (first.Count != second.Count)
-            {
-                return false;
-            }
-
-            valueComparer = valueComparer ?? EqualityComparer<TValue>.Default;
-
-            foreach (KeyValuePair<TKey, TValue> kvp in first)
-            {
-                TValue secondValue;
-                if (!second.TryGetValue(kvp.Key, out secondValue))
-                {
-                    return false;
-                }
-                if (!valueComparer.Equals(kvp.Value, secondValue))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
+        public int BitsPerIndex;
+        public HashSet<ulong> DirectCount;
+        public bool IsSparse;
+        public byte[] LookupDense;
+        public IDictionary<ushort, byte> LookupSparse;
     }
 }

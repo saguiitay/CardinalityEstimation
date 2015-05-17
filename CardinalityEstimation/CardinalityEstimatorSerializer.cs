@@ -1,28 +1,77 @@
-﻿using System.Collections.Generic;
-using System.IO;
+﻿// /*  
+//     See https://github.com/Microsoft/CardinalityEstimation.
+//     The MIT License (MIT)
+// 
+//     Copyright (c) 2015 Microsoft
+// 
+//     Permission is hereby granted, free of charge, to any person obtaining a copy
+//     of this software and associated documentation files (the "Software"), to deal
+//     in the Software without restriction, including without limitation the rights
+//     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//     copies of the Software, and to permit persons to whom the Software is
+//     furnished to do so, subject to the following conditions:
+// 
+//     The above copyright notice and this permission notice shall be included in all
+//     copies or substantial portions of the Software.
+// 
+//     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//     SOFTWARE.
+// */
 
 namespace CardinalityEstimation
 {
-    class CardinalityEstimatorSerializer
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Runtime.Serialization;
+
+    /// <summary>
+    ///     Efficient serializer for <see cref="CardinalityEstimator" />
+    /// </summary>
+    public class CardinalityEstimatorSerializer
     {
+        /// <summary>
+        ///     Highest major version of the serialization format which this serializer can deserialize. A breaking change in the format requires a
+        ///     bump in major version, i.e. version 2.X cannot read 3.Y
+        /// </summary>
+        public const ushort DataFormatMajorVersion = 1;
+
+        /// <summary>
+        ///     Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, i.e. version 2.2
+        ///     should be able to read version 2.3
+        /// </summary>
+        public const ushort DataFormatMinorVersion = 0;
+
+        /// <summary>
+        ///     Serialize the given <paramref name="cardinalityEstimator" /> to <paramref name="stream" />
+        /// </summary>
         public void Serialize(Stream stream, CardinalityEstimator cardinalityEstimator)
         {
             using (var bw = new BinaryWriter(stream))
             {
-                var data = cardinalityEstimator.GetData();
+                bw.Write(DataFormatMajorVersion);
+                bw.Write(DataFormatMinorVersion);
 
-                bw.Write(data.bitsPerIndex);
-                bw.Write((byte)(((data.isSparse ? 1 : 0) << 1) + (data.directCount != null ? 1 : 0)));
-                if (data.directCount != null)
+                CardinalityEstimatorState data = cardinalityEstimator.GetState();
+
+                bw.Write(data.BitsPerIndex);
+                bw.Write((byte) (((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
+                if (data.DirectCount != null)
                 {
-                    bw.Write(data.directCount.Count);
-                    foreach (var element in data.directCount)
+                    bw.Write(data.DirectCount.Count);
+                    foreach (ulong element in data.DirectCount)
+                    {
                         bw.Write(element);
+                    }
                 }
-                else if (data.isSparse)
+                else if (data.IsSparse)
                 {
-                    bw.Write(data.lookupSparse.Count);
-                    foreach (var element in data.lookupSparse)
+                    bw.Write(data.LookupSparse.Count);
+                    foreach (KeyValuePair<ushort, byte> element in data.LookupSparse)
                     {
                         bw.Write(element.Key);
                         bw.Write(element.Value);
@@ -30,64 +79,73 @@ namespace CardinalityEstimation
                 }
                 else
                 {
-                    bw.Write(data.lookupDense.Length);
-                    foreach (var element in data.lookupDense)
+                    bw.Write(data.LookupDense.Length);
+                    foreach (byte element in data.LookupDense)
+                    {
                         bw.Write(element);
+                    }
                 }
                 bw.Flush();
             }
         }
 
+        /// <summary>
+        ///     Deserialize a <see cref="CardinalityEstimator" /> from the given <paramref name="stream" />
+        /// </summary>
         public CardinalityEstimator Deserialize(Stream stream)
         {
             using (var br = new BinaryReader(stream))
             {
-                var bitsPerIndex = br.ReadInt32();
-                var flags = br.ReadByte();
-                var isSparse = ((flags & 2) == 2);
-                var isDirectCount = ((flags & 1) == 1);
+                int dataFormatMajorVersion = br.ReadUInt16();
+                int dataFormatMinorVersion = br.ReadUInt16();
+
+                AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
+
+                int bitsPerIndex = br.ReadInt32();
+                byte flags = br.ReadByte();
+                bool isSparse = ((flags & 2) == 2);
+                bool isDirectCount = ((flags & 1) == 1);
 
                 HashSet<ulong> directCount = null;
-                IDictionary<ushort, byte> lookupSparse = null;
+                IDictionary<ushort, byte> lookupSparse = isSparse ? new Dictionary<ushort, byte>() : null;
                 byte[] lookupDense = null;
 
                 if (isDirectCount)
                 {
-                    var count = br.ReadInt32();
+                    int count = br.ReadInt32();
                     directCount = new HashSet<ulong>();
 
-                    for (int i = 0; i < count; i++)
+                    for (var i = 0; i < count; i++)
                     {
-                        var element = br.ReadUInt64();
+                        ulong element = br.ReadUInt64();
                         directCount.Add(element);
                     }
                 }
                 else if (isSparse)
                 {
-                    var count = br.ReadInt32();
-                    lookupSparse = new Dictionary<ushort, byte>();
+                    int count = br.ReadInt32();
 
-                    for (int i = 0; i < count; i++)
+                    for (var i = 0; i < count; i++)
                     {
-                        var elementKey = br.ReadUInt16();
-                        var elementValue = br.ReadByte();
+                        ushort elementKey = br.ReadUInt16();
+                        byte elementValue = br.ReadByte();
                         lookupSparse.Add(elementKey, elementValue);
                     }
                 }
                 else
                 {
-                    var count = br.ReadInt32();
+                    int count = br.ReadInt32();
                     lookupDense = br.ReadBytes(count);
                 }
 
-                var data = new CardinalityEstimator.CardinalityEstimatorData
-                    {
-                        bitsPerIndex = bitsPerIndex,
-                        directCount = directCount,
-                        isSparse = isSparse,
-                        lookupDense = lookupDense,
-                        lookupSparse = lookupSparse
-                    };
+                var data = new CardinalityEstimatorState
+                {
+                    BitsPerIndex = bitsPerIndex,
+                    DirectCount = directCount,
+                    IsSparse = isSparse,
+                    LookupDense = lookupDense,
+                    LookupSparse = lookupSparse
+                };
 
                 var result = new CardinalityEstimator(data);
 
@@ -95,5 +153,18 @@ namespace CardinalityEstimation
             }
         }
 
+        /// <summary>
+        ///     Checks that this serializer can deserialize data with the given major and minor version numbers
+        /// </summary>
+        /// <exception cref="SerializationException">If this serializer cannot read data with the given version numbers</exception>
+        private static void AssertDataVersionCanBeRead(int dataFormatMajorVersion, int dataFormatMinorVersion)
+        {
+            if (dataFormatMajorVersion > DataFormatMajorVersion)
+            {
+                throw new SerializationException(
+                    string.Format("Incompatible data format, can't deserialize data version {0}.{1} (serializer version: {2}.{3})",
+                        dataFormatMajorVersion, dataFormatMinorVersion, DataFormatMajorVersion, DataFormatMinorVersion));
+            }
+        }
     }
 }

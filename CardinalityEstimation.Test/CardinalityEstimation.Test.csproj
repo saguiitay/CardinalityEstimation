@@ -55,12 +55,28 @@
     <Compile Include="CardinalityEstimatorTests.cs" />
     <Compile Include="DictionaryUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CardinalityEstimation\CardinalityEstimation.csproj">
       <Project>{214AB5A6-DD68-432C-893A-0F6CC70D2005}</Project>
       <Name>CardinalityEstimation</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\serializedDense_v1.0.bin" />
+    <None Include="Resources\serializedDirect_v1.0.bin" />
+    <None Include="Resources\serializedSparse_v1.0.bin" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

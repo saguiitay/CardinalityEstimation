@@ -1,34 +1,33 @@
-﻿/*  
-    See https://github.com/Microsoft/CardinalityEstimation.
-    The MIT License (MIT)
-
-    Copyright (c) 2015 Microsoft
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-*/
-
-using System.Linq;
+﻿// /*  
+//     See https://github.com/Microsoft/CardinalityEstimation.
+//     The MIT License (MIT)
+// 
+//     Copyright (c) 2015 Microsoft
+// 
+//     Permission is hereby granted, free of charge, to any person obtaining a copy
+//     of this software and associated documentation files (the "Software"), to deal
+//     in the Software without restriction, including without limitation the rights
+//     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//     copies of the Software, and to permit persons to whom the Software is
+//     furnished to do so, subject to the following conditions:
+// 
+//     The above copyright notice and this permission notice shall be included in all
+//     copies or substantial portions of the Software.
+// 
+//     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//     SOFTWARE.
+// */
 
 namespace CardinalityEstimation.Test
 {
     using System;
     using System.Diagnostics;
+    using System.Linq;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     [TestClass]
@@ -84,7 +83,7 @@ namespace CardinalityEstimation.Test
         [TestMethod]
         public void AccuracyIsPerfectUnder100Members()
         {
-            for (int i = 1; i < 100; i++)
+            for (var i = 1; i < 100; i++)
             {
                 RunTest(0.1, i, maxAcceptedError: 0);
             }
@@ -94,7 +93,7 @@ namespace CardinalityEstimation.Test
         [TestMethod]
         public void TestAccuracySmallCardinality()
         {
-            for (int i = 1; i < 10000; i = i*2)
+            for (var i = 1; i < 10000; i = i*2)
             {
                 RunTest(0.26, i, 1.5);
                 RunTest(0.008125, i, 0.05);
@@ -131,41 +130,41 @@ namespace CardinalityEstimation.Test
 
         private void RunRecreationFromData(int cardinality = 1000000)
         {
-            CardinalityEstimator hll = new CardinalityEstimator();
+            var hll = new CardinalityEstimator();
 
-            byte[] nextMember = new byte[ElementSizeInBytes];
-            for (int i = 0; i < cardinality; i++)
+            var nextMember = new byte[ElementSizeInBytes];
+            for (var i = 0; i < cardinality; i++)
             {
                 Rand.NextBytes(nextMember);
                 hll.Add(nextMember);
             }
 
-            var data = hll.GetData();
+            CardinalityEstimatorState data = hll.GetState();
 
             var hll2 = new CardinalityEstimator(data);
-            var data2 = hll2.GetData();
+            CardinalityEstimatorState data2 = hll2.GetState();
 
-            Assert.AreEqual(data.bitsPerIndex, data2.bitsPerIndex);
-            Assert.AreEqual(data.isSparse, data2.isSparse);
+            Assert.AreEqual(data.BitsPerIndex, data2.BitsPerIndex);
+            Assert.AreEqual(data.IsSparse, data2.IsSparse);
 
-            Assert.IsTrue((data.directCount != null && data2.directCount != null) || (data.directCount == null && data2.directCount == null));
-            Assert.IsTrue((data.lookupSparse != null && data2.lookupSparse != null) || (data.lookupSparse == null && data2.lookupSparse == null));
-            Assert.IsTrue((data.lookupDense != null && data2.lookupDense != null) || (data.lookupDense == null && data2.lookupDense == null));
+            Assert.IsTrue((data.DirectCount != null && data2.DirectCount != null) || (data.DirectCount == null && data2.DirectCount == null));
+            Assert.IsTrue((data.LookupSparse != null && data2.LookupSparse != null) ||
+                          (data.LookupSparse == null && data2.LookupSparse == null));
+            Assert.IsTrue((data.LookupDense != null && data2.LookupDense != null) || (data.LookupDense == null && data2.LookupDense == null));
 
-            if (data.directCount != null)
+            if (data.DirectCount != null)
             {
                 // DirectCount are subsets of each-other => they are the same set
-                Assert.IsTrue(data.directCount.IsSubsetOf(data2.directCount) && data2.directCount.IsSubsetOf(data.directCount));
+                Assert.IsTrue(data.DirectCount.IsSubsetOf(data2.DirectCount) && data2.DirectCount.IsSubsetOf(data.DirectCount));
             }
-            if (data.lookupSparse != null)
+            if (data.LookupSparse != null)
             {
-                Assert.IsTrue(data.lookupSparse.DictionaryEqual(data2.lookupSparse));
+                Assert.IsTrue(data.LookupSparse.DictionaryEqual(data2.LookupSparse));
             }
-            if (data.lookupDense != null)
+            if (data.LookupDense != null)
             {
-                Assert.IsTrue(data.lookupDense.SequenceEqual(data2.lookupDense));
+                Assert.IsTrue(data.LookupDense.SequenceEqual(data2.LookupDense));
             }
-
         }
 
         [TestMethod]
@@ -174,7 +173,7 @@ namespace CardinalityEstimation.Test
         public void TestPast32BitLimit()
         {
             const double stdError = 0.008125;
-            long cardinality = (long) (Math.Pow(2, 32) + 1703); // just some big number beyond 32 bits
+            var cardinality = (long) (Math.Pow(2, 32) + 1703); // just some big number beyond 32 bits
             RunTest(stdError, cardinality);
         }
 
@@ -182,7 +181,7 @@ namespace CardinalityEstimation.Test
         [Ignore] // Test runtime is long
         public void TestAccuracyLargeCardinality()
         {
-            for (int i = 10007; i < 10000000; i *= 2)
+            for (var i = 10007; i < 10000000; i *= 2)
             {
                 RunTest(0.26, i);
                 RunTest(0.008125, i);
@@ -196,11 +195,11 @@ namespace CardinalityEstimation.Test
         [Ignore] // Test runtime is long
         public void ReportAccuracy()
         {
-            CardinalityEstimator hll = new CardinalityEstimator();
+            var hll = new CardinalityEstimator();
             double maxError = 0;
-            int worstMember = 0;
-            byte[] nextMember = new byte[ElementSizeInBytes];
-            for (int i = 0; i < 10000000; i++)
+            var worstMember = 0;
+            var nextMember = new byte[ElementSizeInBytes];
+            for (var i = 0; i < 10000000; i++)
             {
                 Rand.NextBytes(nextMember);
                 hll.Add(nextMember);
@@ -227,17 +226,17 @@ namespace CardinalityEstimation.Test
             maxAcceptedError = maxAcceptedError ?? 5*stdError; // should fail appx once in 1.7 million runs
             int b = GetAccuracyInBits(stdError);
 
-            Stopwatch runStopwatch = new Stopwatch();
+            var runStopwatch = new Stopwatch();
             long gcMemoryAtStart = GetGcMemory();
 
             // init HLLs
-            CardinalityEstimator[] hlls = new CardinalityEstimator[numHllInstances];
-            for (int i = 0; i < numHllInstances; i++)
+            var hlls = new CardinalityEstimator[numHllInstances];
+            for (var i = 0; i < numHllInstances; i++)
             {
                 hlls[i] = new CardinalityEstimator(b);
             }
 
-            byte[] nextMember = new byte[ElementSizeInBytes];
+            var nextMember = new byte[ElementSizeInBytes];
             runStopwatch.Start();
             for (long i = 0; i < expectedCount; i++)
             {
@@ -272,7 +271,7 @@ namespace CardinalityEstimation.Test
         private static int GetAccuracyInBits(double stdError)
         {
             double sqrtm = 1.04/stdError;
-            int b = (int) Math.Ceiling(CardinalityEstimator.Log2(sqrtm*sqrtm));
+            var b = (int) Math.Ceiling(CardinalityEstimator.Log2(sqrtm*sqrtm));
             return b;
         }
 

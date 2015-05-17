@@ -1,27 +1,27 @@
-﻿/*  
-    See https://github.com/Microsoft/CardinalityEstimation.
-    The MIT License (MIT)
-
-    Copyright (c) 2015 Microsoft
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-*/
+﻿// /*  
+//     See https://github.com/Microsoft/CardinalityEstimation.
+//     The MIT License (MIT)
+// 
+//     Copyright (c) 2015 Microsoft
+// 
+//     Permission is hereby granted, free of charge, to any person obtaining a copy
+//     of this software and associated documentation files (the "Software"), to deal
+//     in the Software without restriction, including without limitation the rights
+//     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//     copies of the Software, and to permit persons to whom the Software is
+//     furnished to do so, subject to the following conditions:
+// 
+//     The above copyright notice and this permission notice shall be included in all
+//     copies or substantial portions of the Software.
+// 
+//     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//     SOFTWARE.
+// */
 
 namespace CardinalityEstimation
 {
@@ -41,7 +41,7 @@ namespace CardinalityEstimation
         internal static readonly double[][] RawEstimate;
 
         /// <summary>
-        ///     Bias values, each corresponding to the <see cref="RawEstimate"/> with the same indexes.
+        ///     Bias values, each corresponding to the <see cref="RawEstimate" /> with the same indexes.
         /// </summary>
         internal static readonly double[][] BiasData;
 
@@ -63,7 +63,7 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Corrects the bias for the given <paramref name="valueToCorrect"/>
+        ///     Corrects the bias for the given <paramref name="valueToCorrect" />
         /// </summary>
         /// <param name="valueToCorrect">Cardinality estimate to correct</param>
         /// <param name="bits">Number of bits in the estimator</param>
@@ -75,11 +75,14 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Gets the estimated bias for the given <paramref name="rawEstimate"/>
+        ///     Gets the estimated bias for the given <paramref name="rawEstimate" />
         /// </summary>
         /// <param name="rawEstimate">Estimated cardinality before bias correction</param>
         /// <param name="bits">Number of bits in the estimator</param>
-        /// <returns>The estimated bias for the given raw estimate. Subtract this value from the <paramref name="rawEstimate"/> to obtain a corrected estimate</returns>
+        /// <returns>
+        ///     The estimated bias for the given raw estimate. Subtract this value from the <paramref name="rawEstimate" /> to obtain a corrected
+        ///     estimate
+        /// </returns>
         private static double GetBias(double rawEstimate, int bits)
         {
             int index = Array.BinarySearch(RawEstimate[bits - BitsIndexOffset], rawEstimate);
@@ -99,7 +102,7 @@ namespace CardinalityEstimation
                 // The raw estimate is larger than all the values in the array, use the bias of the largest element
                 return BiasData[bits - BitsIndexOffset].Last();
             }
-            
+
             if (index <= 0)
             {
                 // The raw estimate is smaller than all the values in the array, use the bias of the smallest element
@@ -112,7 +115,7 @@ namespace CardinalityEstimation
             double nextSmaller = RawEstimate[bits - BitsIndexOffset][index - 1];
             double nextSmallerBias = BiasData[bits - BitsIndexOffset][index - 1];
 
-            double fraction = (rawEstimate - nextSmaller) / (nextLarger - nextSmaller);
+            double fraction = (rawEstimate - nextSmaller)/(nextLarger - nextSmaller);
 
             double bias = nextSmallerBias + fraction*(nextLargerBias - nextSmallerBias);
             return bias;
