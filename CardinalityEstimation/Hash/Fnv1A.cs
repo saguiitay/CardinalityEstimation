@@ -23,21 +23,40 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation
+namespace CardinalityEstimation.Hash
 {
-    using System.Collections.Generic;
-    using Hash;
-
     /// <summary>
-    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
+    ///     Helper class to computes the 64-bit FNV-1a hash of byte arrays, <see cref="GetHashCode" />
     /// </summary>
-    internal class CardinalityEstimatorState
+    internal class Fnv1A : IHashFunction
     {
-        public HashFunctionId HashFunctionId;
-        public int BitsPerIndex;
-        public HashSet<ulong> DirectCount;
-        public bool IsSparse;
-        public byte[] LookupDense;
-        public IDictionary<ushort, byte> LookupSparse;
+        /// <summary>
+        ///     Computes the 64-bit FNV-1a hash of the given <paramref name="bytes" />, see
+        ///     <see cref="http://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function" />
+        ///     and <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
+        /// </summary>
+        /// <param name="bytes">Text to compute the hash for</param>
+        /// <returns>The 64-bit fnv1a hash</returns>
+        public ulong GetHashCode(byte[] bytes)
+        {
+            const ulong fnv1A64Init = 14695981039346656037;
+            const ulong fnv64Prime = 0x100000001b3;
+            ulong hash = fnv1A64Init;
+
+            foreach (byte b in bytes)
+            {
+                /* xor the bottom with the current octet */
+                hash ^= b;
+                /* multiply by the 64 bit FNV magic prime mod 2^64 */
+                hash *= fnv64Prime;
+            }
+
+            return hash;
+        }
+
+        public HashFunctionId HashFunctionId
+        {
+            get { return HashFunctionId.Fnv1A; }
+        }
     }
 }

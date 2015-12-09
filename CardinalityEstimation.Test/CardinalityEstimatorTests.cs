@@ -193,6 +193,20 @@ namespace CardinalityEstimation.Test
 
         [TestMethod]
         [Ignore] // Test runtime is long
+        public void TestSequentialAccuracy()
+        {
+            for (var i = 10007; i < 10000000; i *= 2)
+            {
+                RunTest(0.26, i, sequential: true);
+                RunTest(0.008125, i, sequential: true);
+                RunTest(0.0040625, i, sequential: true);
+            }
+
+            RunTest(0.008125, 100000000);
+        }
+
+        [TestMethod]
+        [Ignore] // Test runtime is long
         public void ReportAccuracy()
         {
             var hll = new CardinalityEstimator();
@@ -221,9 +235,19 @@ namespace CardinalityEstimation.Test
             Assert.IsTrue(true);
         }
 
-        private void RunTest(double stdError, long expectedCount, double? maxAcceptedError = null, int numHllInstances = 1)
+        /// <summary>
+        ///     Generates <paramref name="expectedCount" /> random (or sequential) elements and adds them to CardinalityEstimators, then asserts that
+        ///     the observed error rate is no more than <paramref name="maxAcceptedError" />
+        /// </summary>
+        /// <param name="stdError">Expected standard error of the estimators (upper bound)</param>
+        /// <param name="expectedCount">number of elements to generate in total</param>
+        /// <param name="maxAcceptedError">Maximum allowed error rate. Default is 4 times <paramref name="stdError" /></param>
+        /// <param name="numHllInstances">Number of estimators to create. Generated elements will be assigned to one of the estimators at random</param>
+        /// <param name="sequential">When false, elements will be generated at random. When true, elements will be 0,1,2...</param>
+        private void RunTest(double stdError, long expectedCount, double? maxAcceptedError = null, int numHllInstances = 1,
+            bool sequential = false)
         {
-            maxAcceptedError = maxAcceptedError ?? 5*stdError; // should fail appx once in 1.7 million runs
+            maxAcceptedError = maxAcceptedError ?? 4*stdError; // should fail once in A LOT of runs
             int b = GetAccuracyInBits(stdError);
 
             var runStopwatch = new Stopwatch();
@@ -242,8 +266,15 @@ namespace CardinalityEstimation.Test
             {
                 // pick random hll, add member
                 int chosenHll = Rand.Next(numHllInstances);
-                Rand.NextBytes(nextMember);
-                hlls[chosenHll].Add(nextMember);
+                if (sequential)
+                {
+                    hlls[chosenHll].Add(i);
+                }
+                else
+                {
+                    Rand.NextBytes(nextMember);
+                    hlls[chosenHll].Add(nextMember);                    
+                }
             }
 
             runStopwatch.Stop();

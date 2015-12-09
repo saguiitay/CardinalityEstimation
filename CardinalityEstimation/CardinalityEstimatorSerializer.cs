@@ -28,6 +28,7 @@ namespace CardinalityEstimation
     using System.Collections.Generic;
     using System.IO;
     using System.Runtime.Serialization;
+    using Hash;
 
     /// <summary>
     ///     Efficient serializer for <see cref="CardinalityEstimator" />
@@ -38,7 +39,7 @@ namespace CardinalityEstimation
         ///     Highest major version of the serialization format which this serializer can deserialize. A breaking change in the format requires a
         ///     bump in major version, i.e. version 2.X cannot read 3.Y
         /// </summary>
-        public const ushort DataFormatMajorVersion = 1;
+        public const ushort DataFormatMajorVersion = 2;
 
         /// <summary>
         ///     Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, i.e. version 2.2
@@ -58,6 +59,7 @@ namespace CardinalityEstimation
 
                 CardinalityEstimatorState data = cardinalityEstimator.GetState();
 
+                bw.Write((byte)data.HashFunctionId);
                 bw.Write(data.BitsPerIndex);
                 bw.Write((byte) (((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
                 if (data.DirectCount != null)
@@ -101,6 +103,18 @@ namespace CardinalityEstimation
 
                 AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
 
+                HashFunctionId hashFunctionId;
+                if (dataFormatMajorVersion >= 2)
+                {
+                    // Starting with version 2.0, the serializer writes the hash function ID
+                    hashFunctionId = (HashFunctionId) br.ReadByte();
+                }
+                else
+                {
+                    // Versions before 2.0 all used FNV-1a
+                    hashFunctionId = HashFunctionId.Fnv1A;
+                }
+                
                 int bitsPerIndex = br.ReadInt32();
                 byte flags = br.ReadByte();
                 bool isSparse = ((flags & 2) == 2);
@@ -140,6 +154,7 @@ namespace CardinalityEstimation
 
                 var data = new CardinalityEstimatorState
                 {
+                    HashFunctionId = hashFunctionId,
                     BitsPerIndex = bitsPerIndex,
                     DirectCount = directCount,
                     IsSparse = isSparse,

@@ -23,21 +23,29 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation
+namespace CardinalityEstimation.Hash
 {
-    using System.Collections.Generic;
-    using Hash;
+    using System;
 
-    /// <summary>
-    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
-    /// </summary>
-    internal class CardinalityEstimatorState
+    internal static class HashFunctionFactory
     {
-        public HashFunctionId HashFunctionId;
-        public int BitsPerIndex;
-        public HashSet<ulong> DirectCount;
-        public bool IsSparse;
-        public byte[] LookupDense;
-        public IDictionary<ushort, byte> LookupSparse;
+        /// <summary>
+        ///     Creates a hash function with the implementation id <paramref name="id" />
+        /// </summary>
+        /// <param name="id">Identifies a particular implementation of a hash function</param>
+        /// <returns>The relevant hash function implementation</returns>
+        /// <remarks>This method instantiates a new instance on each call. Make sure to reuse instances when appropriate</remarks>
+        internal static IHashFunction GetHashFunction(HashFunctionId id)
+        {
+            switch (id)
+            {
+                case HashFunctionId.Murmur3:
+                    return new Murmur3();
+                case HashFunctionId.Fnv1A:
+                    return new Fnv1A();
+                default:
+                    throw new NotImplementedException(string.Format("Support not implemented for hash function of type {0}", id));
+            }
+        }
     }
 }

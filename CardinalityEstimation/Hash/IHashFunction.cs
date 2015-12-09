@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/Microsoft/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -23,21 +23,20 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation
+namespace CardinalityEstimation.Hash
 {
-    using System.Collections.Generic;
-    using Hash;
-
-    /// <summary>
-    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
-    /// </summary>
-    internal class CardinalityEstimatorState
+    internal interface IHashFunction
     {
-        public HashFunctionId HashFunctionId;
-        public int BitsPerIndex;
-        public HashSet<ulong> DirectCount;
-        public bool IsSparse;
-        public byte[] LookupDense;
-        public IDictionary<ushort, byte> LookupSparse;
+        /// <summary>
+        ///     Computes the hash code for the given <paramref name="bytes" />
+        /// </summary>
+        /// <param name="bytes">Bytes to compute the hash for</param>
+        /// <returns>The hash</returns>
+        ulong GetHashCode(byte[] bytes);
+
+        /// <summary>
+        ///     Gets this implementation's HashFunctionId. Each implementation must have a unique ID.
+        /// </summary>
+        HashFunctionId HashFunctionId { get; }
     }
 }

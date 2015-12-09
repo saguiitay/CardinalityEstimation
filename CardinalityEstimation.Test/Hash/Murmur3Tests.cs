@@ -23,21 +23,19 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation
+namespace CardinalityEstimation.Test.Hash
 {
-    using System.Collections.Generic;
-    using Hash;
+    using System;
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-    /// <summary>
-    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
-    /// </summary>
-    internal class CardinalityEstimatorState
+    [TestClass]
+    public class Murmur3Tests
     {
-        public HashFunctionId HashFunctionId;
-        public int BitsPerIndex;
-        public HashSet<ulong> DirectCount;
-        public bool IsSparse;
-        public byte[] LookupDense;
-        public IDictionary<ushort, byte> LookupSparse;
+        [TestMethod]
+        public void Murmur3ProducesRightValues()
+        {
+            // check some precomputed values of Murmur3
+            throw new NotImplementedException();
+        }
     }
 }

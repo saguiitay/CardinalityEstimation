@@ -30,6 +30,8 @@ namespace CardinalityEstimation.Test
     using System.IO;
     using System.Linq;
     using System.Runtime.Serialization.Formatters.Binary;
+    using CardinalityEstimation.Hash;
+    using Hash;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     [TestClass]
@@ -76,12 +78,12 @@ namespace CardinalityEstimation.Test
             // 1 byte for the IsSparse and IsDirectCount flags
             // 4 bytes for the number of elements in DirectCount
             // 8 bytes for each element (ulong) in DirectCount
-            Assert.AreEqual(93, results.Length);
+            Assert.AreEqual(94, results.Length);
 
-
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(4).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(3, results[8]); // IsSparse = true AND IsDirectCount = true
-            Assert.AreEqual(10, BitConverter.ToInt32(results.Skip(9).Take(4).ToArray(), 0)); // Count = 10
+            Assert.AreEqual((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
+            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.AreEqual(3, results[9]); // IsSparse = true AND IsDirectCount = true
+            Assert.AreEqual(10, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0)); // Count = 10
         }
 
         [TestMethod]
@@ -209,6 +211,26 @@ namespace CardinalityEstimation.Test
             Assert.AreEqual(50UL, hllDirect.Count());
             Assert.AreEqual(151UL, hllSparse.Count());
             Assert.AreEqual(5005UL, hllDense.Count());
+        }
+
+        /// <summary>
+        ///     If this method fails, it's possible that the serialization format has changed and
+        ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
+        /// </summary>
+        [TestMethod]
+        public void SerializerCanDeserializeVersion2Point0()
+        {
+            var serializer = new CardinalityEstimatorSerializer();
+
+            //CardinalityEstimator hllDirect = serializer.Deserialize(new MemoryStream(Resources.serializedDirect_v2_0));
+            //CardinalityEstimator hllSparse = serializer.Deserialize(new MemoryStream(Resources.serializedSparse_v2_0));
+            //CardinalityEstimator hllDense = serializer.Deserialize(new MemoryStream(Resources.serializedDense_v2_0));
+
+            //Assert.AreEqual(50UL, hllDirect.Count());
+            //Assert.AreEqual(151UL, hllSparse.Count());
+            //Assert.AreEqual(5005UL, hllDense.Count());
+
+            throw new NotImplementedException();
         }
 
         private CardinalityEstimator CreateAndFillCardinalityEstimator(int cardinality = 1000000)
