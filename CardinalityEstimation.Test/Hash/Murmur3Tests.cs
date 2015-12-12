@@ -26,16 +26,33 @@
 namespace CardinalityEstimation.Test.Hash
 {
     using System;
+    using CardinalityEstimation.Hash;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     [TestClass]
     public class Murmur3Tests
     {
+        private Murmur3 sut;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            this.sut = new Murmur3();
+        }
+
         [TestMethod]
         public void Murmur3ProducesRightValues()
         {
-            // check some precomputed values of Murmur3
-            throw new NotImplementedException();
+            // Check some precomputed values of Murmur3
+            Assert.AreEqual(0UL, this.sut.GetHashCode(new byte[0]));
+            Assert.AreEqual(18344466521425217038UL, this.sut.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
+            Assert.AreEqual(4889297221962843713UL, this.sut.GetHashCode(new byte[] { 255, 255, 255, 255 }));
+        }
+
+        [TestMethod]
+        public void Murmur3HasRightId()
+        {
+            Assert.AreEqual(1, (byte)this.sut.HashFunctionId, "When serialized to a byte, Murmur3's ID should be 1");
         }
     }
 }
