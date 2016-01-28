@@ -136,7 +136,7 @@ namespace CardinalityEstimation
             }
         }
 
-        public ulong Size { get; set; }
+        public ulong Size { get; private set; }
 
         public void Add(string element)
         {

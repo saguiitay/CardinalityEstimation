@@ -43,6 +43,6 @@ namespace CardinalityEstimation
         /// <returns>The estimated count of unique elements</returns>
         ulong Count();
 
-        ulong Size { get; set; }
+        ulong Size { get; }
     }
 }
