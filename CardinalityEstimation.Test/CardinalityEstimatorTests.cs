@@ -75,6 +75,12 @@ namespace CardinalityEstimation.Test
             estimator.Add(0);
 
             Assert.AreEqual((UInt64)2, estimator.Size);
+
+            var estimator2 = new CardinalityEstimator();
+            estimator2.Add(0);
+            estimator.Merge(estimator2);
+
+            Assert.AreEqual((UInt64)3, estimator.Size);
         }
 
         [TestMethod]

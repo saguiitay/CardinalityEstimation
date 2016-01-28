@@ -264,6 +264,7 @@ namespace CardinalityEstimation
                     "Cannot merge CardinalityEstimator instances with different accuracy/map sizes");
             }
 
+            this.Size += other.Size;
             if (this.isSparse && other.isSparse)
             {
                 // Merge two sparse instances
