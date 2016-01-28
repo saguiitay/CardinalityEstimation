@@ -112,7 +112,7 @@ namespace CardinalityEstimation
             this.isSparse = state.IsSparse;
             this.lookupSparse = state.LookupSparse != null ? new Dictionary<ushort, byte>(state.LookupSparse) : null;
             this.lookupDense = state.LookupDense;
-            this.Size = state.Size;
+            this.CountElementsAdded = state.Size;
 
             // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
             this.sparseMaxElements = Math.Max(0, this.m/15 - 10);
@@ -136,54 +136,62 @@ namespace CardinalityEstimation
             }
         }
 
-        public ulong Size { get; private set; }
+        public ulong CountElementsAdded { get; private set; }
 
         public void Add(string element)
         {
             ulong hashCode = GetHashCode(Encoding.UTF8.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(int element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(uint element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(long element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(ulong element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(float element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(double element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
         public void Add(byte[] element)
         {
             ulong hashCode = GetHashCode(element);
             AddElementHash(hashCode);
+            this.CountElementsAdded++;
         }
 
 
@@ -264,7 +272,7 @@ namespace CardinalityEstimation
                     "Cannot merge CardinalityEstimator instances with different accuracy/map sizes");
             }
 
-            this.Size += other.Size;
+            this.CountElementsAdded += other.CountElementsAdded;
             if (this.isSparse && other.isSparse)
             {
                 // Merge two sparse instances
@@ -351,7 +359,7 @@ namespace CardinalityEstimation
                 IsSparse = this.isSparse,
                 LookupDense = this.lookupDense,
                 LookupSparse = this.lookupSparse,
-                Size = this.Size
+                Size = this.CountElementsAdded
             };
         }
 
@@ -428,7 +436,6 @@ namespace CardinalityEstimation
         /// <param name="hashCode">Hash code of the element to add</param>
         private void AddElementHash(ulong hashCode)
         {
-            this.Size++;
             if (this.directCount != null)
             {
                 this.directCount.Add(hashCode);

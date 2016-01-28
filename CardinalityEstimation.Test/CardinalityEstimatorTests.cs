@@ -69,18 +69,18 @@ namespace CardinalityEstimation.Test
         {
             var estimator = new CardinalityEstimator();
 
-            Assert.AreEqual((UInt64)0, estimator.Size);
+            Assert.AreEqual(0UL, estimator.CountElementsAdded);
 
             estimator.Add(0);
             estimator.Add(0);
 
-            Assert.AreEqual((UInt64)2, estimator.Size);
+            Assert.AreEqual(2UL, estimator.CountElementsAdded);
 
             var estimator2 = new CardinalityEstimator();
             estimator2.Add(0);
             estimator.Merge(estimator2);
 
-            Assert.AreEqual((UInt64)3, estimator.Size);
+            Assert.AreEqual(3UL, estimator.CountElementsAdded);
         }
 
         [TestMethod]

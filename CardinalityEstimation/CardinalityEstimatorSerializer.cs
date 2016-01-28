@@ -58,6 +58,7 @@ namespace CardinalityEstimation
 
                 CardinalityEstimatorState data = cardinalityEstimator.GetState();
 
+                bw.Write(data.Size);
                 bw.Write(data.BitsPerIndex);
                 bw.Write((byte) (((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
                 if (data.DirectCount != null)
@@ -101,6 +102,7 @@ namespace CardinalityEstimation
 
                 AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
 
+                ulong size = br.ReadUInt64();
                 int bitsPerIndex = br.ReadInt32();
                 byte flags = br.ReadByte();
                 bool isSparse = ((flags & 2) == 2);
@@ -144,7 +146,8 @@ namespace CardinalityEstimation
                     DirectCount = directCount,
                     IsSparse = isSparse,
                     LookupDense = lookupDense,
-                    LookupSparse = lookupSparse
+                    LookupSparse = lookupSparse,
+                    Size = size
                 };
 
                 var result = new CardinalityEstimator(data);

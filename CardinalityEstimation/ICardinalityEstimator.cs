@@ -42,7 +42,10 @@ namespace CardinalityEstimation
         /// </summary>
         /// <returns>The estimated count of unique elements</returns>
         ulong Count();
-
-        ulong Size { get; }
+        /// <summary>
+        ///     Returns the number of times elements were added (including duplicates)
+        /// </summary>
+        /// <returns>The number of times <see cref="Add"/> was called</returns>
+        ulong CountElementsAdded { get; }
     }
 }
