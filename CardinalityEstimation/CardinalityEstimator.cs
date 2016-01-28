@@ -112,6 +112,7 @@ namespace CardinalityEstimation
             this.isSparse = state.IsSparse;
             this.lookupSparse = state.LookupSparse != null ? new Dictionary<ushort, byte>(state.LookupSparse) : null;
             this.lookupDense = state.LookupDense;
+            this.Size = state.Size;
 
             // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
             this.sparseMaxElements = Math.Max(0, this.m/15 - 10);
@@ -134,6 +135,8 @@ namespace CardinalityEstimation
                 this.directCount = null;
             }
         }
+
+        public ulong Size { get; set; }
 
         public void Add(string element)
         {
@@ -346,7 +349,8 @@ namespace CardinalityEstimation
                 DirectCount = this.directCount,
                 IsSparse = this.isSparse,
                 LookupDense = this.lookupDense,
-                LookupSparse = this.lookupSparse
+                LookupSparse = this.lookupSparse,
+                Size = this.Size
             };
         }
 
@@ -368,6 +372,7 @@ namespace CardinalityEstimation
                 IsSparse = true,
                 LookupSparse = new Dictionary<ushort, byte>(),
                 LookupDense = null,
+                Size = 0
             };
         }
 
@@ -422,6 +427,7 @@ namespace CardinalityEstimation
         /// <param name="hashCode">Hash code of the element to add</param>
         private void AddElementHash(ulong hashCode)
         {
+            this.Size++;
             if (this.directCount != null)
             {
                 this.directCount.Add(hashCode);
