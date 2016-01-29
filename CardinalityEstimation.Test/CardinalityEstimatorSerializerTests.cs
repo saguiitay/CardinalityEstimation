@@ -70,19 +70,18 @@ namespace CardinalityEstimation.Test
             }
 
 
-            // Expected length is 101:
+            // Expected length is 93:
             // 4 bytes for the major and minor versions
-            // 8 bytes for size
             // 4 bytes for the Bits in Index
             // 1 byte for the IsSparse and IsDirectCount flags
             // 4 bytes for the number of elements in DirectCount
             // 8 bytes for each element (ulong) in DirectCount
-            Assert.AreEqual(101, results.Length);
-            
-            Assert.AreEqual(10UL, BitConverter.ToUInt64(results.Skip(4).Take(8).ToArray(), 0));
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(12).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(3, results[16]); // IsSparse = true AND IsDirectCount = true
-            Assert.AreEqual(10, BitConverter.ToInt32(results.Skip(17).Take(4).ToArray(), 0)); // Count = 10
+            Assert.AreEqual(93, results.Length);
+
+
+            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(4).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.AreEqual(3, results[8]); // IsSparse = true AND IsDirectCount = true
+            Assert.AreEqual(10, BitConverter.ToInt32(results.Skip(9).Take(4).ToArray(), 0)); // Count = 10
         }
 
         [TestMethod]
@@ -102,19 +101,18 @@ namespace CardinalityEstimation.Test
 
             CardinalityEstimatorState data = hll.GetState();
 
-            // Expected length is 2916:
+            // Expected length is 2908:
             // 4 bytes for the major and minor versions
-            // 8 bytes for size
             // 4 bytes for the Bits in Index 
             // 1 byte for the IsSparse and IsDirectCount flags
             // 4 bytes for the number of elements in lookupSparse
             // 2+1 bytes for each element (ulong) in lookupSparse
-            Assert.AreEqual(21 + 3*data.LookupSparse.Count, results.Length);
+            Assert.AreEqual(13 + 3*data.LookupSparse.Count, results.Length);
 
-            Assert.AreEqual(1000UL, BitConverter.ToUInt64(results.Skip(4).Take(8).ToArray(), 0));
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(12).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(2, results[16]); // IsSparse = true AND IsDirectCount = false
-            Assert.AreEqual(data.LookupSparse.Count, BitConverter.ToInt32(results.Skip(17).Take(4).ToArray(), 0));
+
+            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(4).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.AreEqual(2, results[8]); // IsSparse = true AND IsDirectCount = false
+            Assert.AreEqual(data.LookupSparse.Count, BitConverter.ToInt32(results.Skip(9).Take(4).ToArray(), 0));
         }
 
         [TestMethod]
@@ -134,51 +132,18 @@ namespace CardinalityEstimation.Test
 
             CardinalityEstimatorState data = hll.GetState();
 
-            // Expected length is 2916:
+            // Expected length is 2908:
             // 4 bytes for the major and minor versions
-            // 8 bytes for size
             // 4 bytes for the Bits in Index 
             // 1 byte for the IsSparse and IsDirectCount flags
             // 4 bytes for the number of elements in lookupDense
             // 1 bytes for each element (ulong) in lookupDense
-            Assert.AreEqual(21 + data.LookupDense.Length, results.Length);
+            Assert.AreEqual(13 + data.LookupDense.Length, results.Length);
 
-            Assert.AreEqual(100000UL, BitConverter.ToUInt64(results.Skip(4).Take(8).ToArray(), 0));
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(12).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(0, results[16]); // IsSparse = false AND IsDirectCount = false
-            Assert.AreEqual(data.LookupDense.Length, BitConverter.ToInt32(results.Skip(17).Take(4).ToArray(), 0));
-        }
 
-        [TestMethod]
-        public void TestSerializerSize()
-        {
-            var estimator = new CardinalityEstimator();
-
-            var serializer = new CardinalityEstimatorSerializer();
-
-            byte[] results;
-            using (var memoryStream = new MemoryStream())
-            {
-                serializer.Serialize(memoryStream, estimator);
-
-                results = memoryStream.ToArray();
-            }
-
-            Assert.AreEqual(0UL, BitConverter.ToUInt64(results.Skip(4).Take(8).ToArray(), 0));
-
-            estimator.Add(0);
-            estimator.Add(0);
-            
-            using (var memoryStream = new MemoryStream())
-            {
-                serializer.Serialize(memoryStream, estimator);
-
-                results = memoryStream.ToArray();
-            }
-            
-            Assert.AreEqual(2UL, BitConverter.ToUInt64(results.Skip(4).Take(8).ToArray(), 0));
-
-            
+            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(4).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.AreEqual(0, results[8]); // IsSparse = false AND IsDirectCount = false
+            Assert.AreEqual(data.LookupDense.Length, BitConverter.ToInt32(results.Skip(9).Take(4).ToArray(), 0));
         }
 
 
@@ -200,7 +165,7 @@ namespace CardinalityEstimation.Test
             {
                 TestDeserializer(10);
                 TestDeserializer(1000);
-                TestDeserializer(1000);
+                TestDeserializer(100000);
             }
         }
 
@@ -241,9 +206,6 @@ namespace CardinalityEstimation.Test
             CardinalityEstimator hllSparse = serializer.Deserialize(new MemoryStream(Resources.serializedSparse_v1_0));
             CardinalityEstimator hllDense = serializer.Deserialize(new MemoryStream(Resources.serializedDense_v1_0));
 
-            Assert.AreEqual(0UL, hllDirect.CountElementsAdded);
-            Assert.AreEqual(0UL, hllSparse.CountElementsAdded);
-            Assert.AreEqual(0UL, hllDense.CountElementsAdded);
             Assert.AreEqual(50UL, hllDirect.Count());
             Assert.AreEqual(151UL, hllSparse.Count());
             Assert.AreEqual(5005UL, hllDense.Count());
@@ -313,7 +275,6 @@ namespace CardinalityEstimation.Test
             CardinalityEstimatorState data = hll.GetState();
             CardinalityEstimatorState data2 = hll2.GetState();
 
-            Assert.AreEqual(data.Size, data2.Size);
             Assert.AreEqual(data.BitsPerIndex, data2.BitsPerIndex);
             Assert.AreEqual(data.IsSparse, data2.IsSparse);
 
