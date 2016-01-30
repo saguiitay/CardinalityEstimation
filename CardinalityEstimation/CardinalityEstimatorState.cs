@@ -37,6 +37,6 @@ namespace CardinalityEstimation
         public bool IsSparse;
         public byte[] LookupDense;
         public IDictionary<ushort, byte> LookupSparse;
-        public ulong Size;
+        public ulong CountAdditions;
     }
 }
