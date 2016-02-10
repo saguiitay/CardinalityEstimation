@@ -65,6 +65,25 @@ namespace CardinalityEstimation.Test
         }
 
         [TestMethod]
+        public void TestCountAdditions()
+        {
+            var estimator = new CardinalityEstimator();
+
+            Assert.AreEqual(0UL, estimator.CountAdditions);
+
+            estimator.Add(0);
+            estimator.Add(0);
+
+            Assert.AreEqual(2UL, estimator.CountAdditions);
+
+            var estimator2 = new CardinalityEstimator();
+            estimator2.Add(0);
+            estimator.Merge(estimator2);
+
+            Assert.AreEqual(3UL, estimator.CountAdditions);
+        }
+
+        [TestMethod]
         public void TestDifferentAccuracies()
         {
             const double stdError4Bits = 0.26;
