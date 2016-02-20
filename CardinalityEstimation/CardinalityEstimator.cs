@@ -28,7 +28,9 @@ namespace CardinalityEstimation
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Runtime.Serialization;
     using System.Text;
+    using Hash;
 
     /// <summary>
     ///     A cardinality estimator for sets of some common types, which uses a HashSet for small cardinalities,
@@ -41,7 +43,8 @@ namespace CardinalityEstimation
     /// </summary>
     /// <remarks>
     ///     1. This implementation is not thread-safe
-    ///     2. It uses the 64-bit Fowler/Noll/Vo-0 FNV-1a hash function, <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
+    ///     2. By default, it uses the 128-bit Murmur3 hash function, <see cref="http://github.com/darrenkopp/murmurhash-net"/>.
+    ///        For legacy support, the c'tor also allows using the 64-bit Fowler/Noll/Vo-0 FNV-1a hash function, <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
     ///     3. Estimation is perfect up to 100 elements, then approximate
     /// </remarks>
     [Serializable]
@@ -82,6 +85,12 @@ namespace CardinalityEstimation
         /// <summary> Max number of elements to hold in the direct representation </summary>
         private const int DirectCounterMaxElements = 100;
 
+        /// <summary> ID of hash function used </summary>
+        private readonly HashFunctionId hashFunctionId;
+
+        /// <summary> Hash function used </summary>
+        [NonSerialized]
+        private IHashFunction hashFunction;
         /// <summary>
         ///     C'tor
         /// </summary>
@@ -92,7 +101,8 @@ namespace CardinalityEstimation
         ///     and uses up to ~16kB of memory.  b=4 yields less than ~100% error and uses less than 1kB. b=16 uses up to ~64kB and usually yields 1%
         ///     error or less
         /// </param>
-        public CardinalityEstimator(int b = 14) : this(CreateEmptyState(b)) {}
+        /// <param name="hashFunctionId">Type of hash function to use. Default is Murmur3, and FNV-1a is provided for legacy support</param>
+        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3) : this(CreateEmptyState(b, hashFunctionId)) {}
 
         /// <summary>
         ///     Creates a CardinalityEstimator with the given <paramref name="state" />
@@ -104,6 +114,10 @@ namespace CardinalityEstimation
             this.m = (int) Math.Pow(2, this.bitsPerIndex);
             this.alphaM = GetAlphaM(this.m);
             this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
+
+            // Init the hash function
+            this.hashFunctionId = state.HashFunctionId;
+            this.hashFunction = HashFunctionFactory.GetHashFunction(this.hashFunctionId);
 
             // Init the direct count
             this.directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
@@ -359,6 +373,7 @@ namespace CardinalityEstimation
                 IsSparse = this.isSparse,
                 LookupDense = this.lookupDense,
                 LookupSparse = this.lookupSparse,
+                HashFunctionId = this.hashFunctionId,
                 CountAdditions = this.CountAdditions,
             };
         }
@@ -366,8 +381,9 @@ namespace CardinalityEstimation
         /// <summary>
         ///     Creates state for an empty CardinalityEstimator : DirectCount and LookupSparse are empty, LookupDense is null.
         /// </summary>
-        /// <param name="b"><see cref="CardinalityEstimator(int)" /></param>
-        private static CardinalityEstimatorState CreateEmptyState(int b)
+        /// <param name="b"><see cref="CardinalityEstimator(int, HashFunctionId)" /></param>
+        /// <param name="hashFunctionId"><see cref="CardinalityEstimator(int, HashFunctionId)" /></param>
+        private static CardinalityEstimatorState CreateEmptyState(int b, HashFunctionId hashFunctionId)
         {
             if (b < 4 || b > 16)
             {
@@ -381,6 +397,7 @@ namespace CardinalityEstimation
                 IsSparse = true,
                 LookupSparse = new Dictionary<ushort, byte>(),
                 LookupDense = null,
+                HashFunctionId = hashFunctionId,
                 CountAdditions = 0,
             };
         }
@@ -496,27 +513,13 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Computes the 64-bit FNV-1a hash of the given <paramref name="bytes" />, see
-        ///     <see cref="http://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function" />
-        ///     and <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
+        ///     Computes the hash of the given <paramref name="bytes" />
         /// </summary>
-        /// <param name="bytes">Text to compute the hash for</param>
-        /// <returns>The 64-bit fnv1a hash</returns>
-        private static ulong GetHashCode(byte[] bytes)
+        /// <param name="bytes">data to compute the hash for</param>
+        /// <returns>The hash code of <paramref name="bytes"/></returns>
+        private ulong GetHashCode(byte[] bytes)
         {
-            const ulong fnv1A64Init = 14695981039346656037;
-            const ulong fnv64Prime = 0x100000001b3;
-            ulong hash = fnv1A64Init;
-
-            foreach (byte b in bytes)
-            {
-                /* xor the bottom with the current octet */
-                hash ^= b;
-                /* multiply by the 64 bit FNV magic prime mod 2^64 */
-                hash *= fnv64Prime;
-            }
-
-            return hash;
+            return this.hashFunction.GetHashCode(bytes);
         }
 
         /// <summary>
@@ -560,6 +563,12 @@ namespace CardinalityEstimation
             }
             this.lookupSparse = null;
             this.isSparse = false;
+        }
+
+        [OnDeserialized]
+        internal void SetHashFunctionAfterDeserializing(StreamingContext context)
+        {
+            this.hashFunction = HashFunctionFactory.GetHashFunction(this.hashFunctionId);
         }
     }
 }

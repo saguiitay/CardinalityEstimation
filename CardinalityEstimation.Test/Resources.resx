@@ -121,10 +121,28 @@
   <data name="serializedDense_v1_0" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\serializedDense_v1.0.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="serializedDense_v2_0" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>resources\serializeddense_v2_0.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="serializedDense_v2_1" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\serializedDense_v2_1.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="serializedDirect_v1_0" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\serializedDirect_v1.0.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="serializedDirect_v2_0" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>resources\serializeddirect_v2_0.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="serializedDirect_v2_1" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\serializedDirect_v2_1.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="serializedSparse_v1_0" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\serializedSparse_v1.0.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="serializedSparse_v2_0" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>resources\serializedsparse_v2_0.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="serializedSparse_v2_1" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\serializedSparse_v2_1.bin;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
 </root>

@@ -73,6 +73,26 @@ namespace CardinalityEstimation.Test {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] serializedDense_v2_0 {
+            get {
+                object obj = ResourceManager.GetObject("serializedDense_v2_0", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] serializedDense_v2_1 {
+            get {
+                object obj = ResourceManager.GetObject("serializedDense_v2_1", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] serializedDirect_v1_0 {
             get {
                 object obj = ResourceManager.GetObject("serializedDirect_v1_0", resourceCulture);
@@ -83,9 +103,49 @@ namespace CardinalityEstimation.Test {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] serializedDirect_v2_0 {
+            get {
+                object obj = ResourceManager.GetObject("serializedDirect_v2_0", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] serializedDirect_v2_1 {
+            get {
+                object obj = ResourceManager.GetObject("serializedDirect_v2_1", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] serializedSparse_v1_0 {
             get {
                 object obj = ResourceManager.GetObject("serializedSparse_v1_0", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] serializedSparse_v2_0 {
+            get {
+                object obj = ResourceManager.GetObject("serializedSparse_v2_0", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] serializedSparse_v2_1 {
+            get {
+                object obj = ResourceManager.GetObject("serializedSparse_v2_1", resourceCulture);
                 return ((byte[])(obj));
             }
         }

@@ -23,22 +23,17 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation
+namespace CardinalityEstimation.Hash
 {
-    using System.Collections.Generic;
-    using Hash;
-
     /// <summary>
-    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
+    ///     Identifies a <i>particular implementation</i> of a hash function. Implemented as a byte to save serialization space
     /// </summary>
-    internal class CardinalityEstimatorState
+    public enum HashFunctionId : byte
     {
-        public HashFunctionId HashFunctionId;
-        public int BitsPerIndex;
-        public HashSet<ulong> DirectCount;
-        public bool IsSparse;
-        public byte[] LookupDense;
-        public IDictionary<ushort, byte> LookupSparse;
-        public ulong CountAdditions;
+        /// <summary> 64-bit Fowler/Noll/Vo-0 FNV-1a, <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" /> </summary>
+        Fnv1A = 0,
+
+        /// <summary> 128-bit Murmur3 hash function, <see cref="http://github.com/darrenkopp/murmurhash-net" /> </summary>
+        Murmur3 = 1
     }
 }

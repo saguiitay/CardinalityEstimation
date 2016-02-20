@@ -23,22 +23,23 @@
 //     SOFTWARE.
 // */
 
-namespace CardinalityEstimation
+namespace CardinalityEstimation.Hash
 {
-    using System.Collections.Generic;
-    using Hash;
+    using System;
+    using Murmur;
 
-    /// <summary>
-    ///     Represents state of a <see cref="CardinalityEstimator" /> for serialization, <see cref="CardinalityEstimatorSerializer" />
-    /// </summary>
-    internal class CardinalityEstimatorState
+    internal class Murmur3 : IHashFunction
     {
-        public HashFunctionId HashFunctionId;
-        public int BitsPerIndex;
-        public HashSet<ulong> DirectCount;
-        public bool IsSparse;
-        public byte[] LookupDense;
-        public IDictionary<ushort, byte> LookupSparse;
-        public ulong CountAdditions;
+        private static readonly Murmur128 murmurHash = MurmurHash.Create128(managed: true, preference: AlgorithmPreference.X64);
+
+        public ulong GetHashCode(byte[] bytes)
+        {
+            return BitConverter.ToUInt64(murmurHash.ComputeHash(bytes), 0);
+        }
+
+        public HashFunctionId HashFunctionId
+        {
+            get { return HashFunctionId.Murmur3; }
+        }
     }
 }
