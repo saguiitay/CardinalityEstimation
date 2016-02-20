@@ -45,7 +45,7 @@ namespace CardinalityEstimation
         ///     Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, i.e. version 2.2
         ///     should be able to read version 2.3
         /// </summary>
-        public const ushort DataFormatMinorVersion = 0;
+        public const ushort DataFormatMinorVersion = 1;
 
         /// <summary>
         ///     Serialize the given <paramref name="cardinalityEstimator" /> to <paramref name="stream" />
@@ -87,6 +87,8 @@ namespace CardinalityEstimation
                         bw.Write(element);
                     }
                 }
+
+                bw.Write(data.CountAdditions);
                 bw.Flush();
             }
         }
@@ -152,6 +154,13 @@ namespace CardinalityEstimation
                     lookupDense = br.ReadBytes(count);
                 }
 
+                // Starting with version 2.1, the serializer writes CountAdditions
+                ulong countAdditions = 0UL;
+                if (dataFormatMajorVersion >= 2 && dataFormatMinorVersion >= 1)
+                {
+                    countAdditions = br.ReadUInt64();
+                }
+
                 var data = new CardinalityEstimatorState
                 {
                     HashFunctionId = hashFunctionId,
@@ -159,7 +168,8 @@ namespace CardinalityEstimation
                     DirectCount = directCount,
                     IsSparse = isSparse,
                     LookupDense = lookupDense,
-                    LookupSparse = lookupSparse
+                    LookupSparse = lookupSparse,
+                    CountAdditions = countAdditions,
                 };
 
                 var result = new CardinalityEstimator(data);

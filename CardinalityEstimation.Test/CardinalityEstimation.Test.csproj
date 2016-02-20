@@ -79,10 +79,13 @@
   <ItemGroup>
     <None Include="Resources\serializedDense_v1.0.bin" />
     <None Include="Resources\serializedDense_v2_0.bin" />
+    <None Include="Resources\serializedDense_v2_1.bin" />
     <None Include="Resources\serializedDirect_v1.0.bin" />
     <None Include="Resources\serializedDirect_v2_0.bin" />
+    <None Include="Resources\serializedDirect_v2_1.bin" />
     <None Include="Resources\serializedSparse_v1.0.bin" />
     <None Include="Resources\serializedSparse_v2_0.bin" />
+    <None Include="Resources\serializedSparse_v2_1.bin" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
