@@ -28,6 +28,7 @@ namespace CardinalityEstimation
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Runtime.Serialization;
     using System.Text;
     using Hash;
 
@@ -89,7 +90,7 @@ namespace CardinalityEstimation
 
         /// <summary> Hash function used </summary>
         [NonSerialized]
-        private readonly IHashFunction hashFunction;
+        private IHashFunction hashFunction;
         /// <summary>
         ///     C'tor
         /// </summary>
@@ -562,6 +563,12 @@ namespace CardinalityEstimation
             }
             this.lookupSparse = null;
             this.isSparse = false;
+        }
+
+        [OnDeserialized]
+        internal void SetHashFunctionAfterDeserializing(StreamingContext context)
+        {
+            this.hashFunction = HashFunctionFactory.GetHashFunction(this.hashFunctionId);
         }
     }
 }

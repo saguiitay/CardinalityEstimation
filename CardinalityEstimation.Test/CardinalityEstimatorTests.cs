@@ -27,7 +27,9 @@ namespace CardinalityEstimation.Test
 {
     using System;
     using System.Diagnostics;
+    using System.IO;
     using System.Linq;
+    using System.Runtime.Serialization.Formatters.Binary;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     [TestClass]
@@ -145,6 +147,28 @@ namespace CardinalityEstimation.Test
             RunRecreationFromData(10000);
             RunRecreationFromData(100000);
             RunRecreationFromData(1000000);
+        }
+
+        [TestMethod]
+        public void EstimatorWorksAfterDeserialization()
+        {
+            ICardinalityEstimator<int> original = new CardinalityEstimator();
+            original.Add(5);
+            original.Add(7);
+            Assert.AreEqual(2UL, original.Count());
+
+            var binaryFormatter = new BinaryFormatter();
+            using (var memoryStream = new MemoryStream())
+            {
+                binaryFormatter.Serialize(memoryStream, original);
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                CardinalityEstimator copy = (CardinalityEstimator) binaryFormatter.Deserialize(memoryStream);
+
+                Assert.AreEqual(2UL, copy.Count());
+                copy.Add(5);
+                copy.Add(7);
+                Assert.AreEqual(2UL, copy.Count());
+            }
         }
 
         private void RunRecreationFromData(int cardinality = 1000000)
