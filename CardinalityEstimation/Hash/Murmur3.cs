@@ -33,25 +33,17 @@ namespace CardinalityEstimation.Hash
     {
         private static readonly ConcurrentStack<Murmur128> pool = new ConcurrentStack<Murmur128>();
 
-        private static Murmur128 Create()
-        {
-            return MurmurHash.Create128(managed: true, preference: AlgorithmPreference.X64);
-        }
-
-
         public ulong GetHashCode(byte[] bytes)
         {
             Murmur128 murmurHash;
             if (!pool.TryPop(out murmurHash))
             {
-                murmurHash = Create();
+                murmurHash = MurmurHash.Create128(managed: true, preference: AlgorithmPreference.X64);
             }
 
-            var result = murmurHash.ComputeHash(bytes);
-
+            byte[] result = murmurHash.ComputeHash(bytes);
             pool.Push(murmurHash);
-
-            return BitConverter.ToUInt64(result,0);
+            return BitConverter.ToUInt64(result, 0);
         }
 
         public HashFunctionId HashFunctionId
