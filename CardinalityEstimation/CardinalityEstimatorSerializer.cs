@@ -28,6 +28,8 @@ namespace CardinalityEstimation
     using System.Collections.Generic;
     using System.IO;
     using System.Runtime.Serialization;
+    using System.Text;
+
     using Hash;
 
     /// <summary>
@@ -48,11 +50,24 @@ namespace CardinalityEstimation
         public const ushort DataFormatMinorVersion = 1;
 
         /// <summary>
-        ///     Serialize the given <paramref name="cardinalityEstimator" /> to <paramref name="stream" />
+        /// Serializes <paramref name="cardinalityEstimator"/> to <paramref name="stream"/>.
         /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <param name="cardinalityEstimator">The cardinality estimator.</param>
         public void Serialize(Stream stream, CardinalityEstimator cardinalityEstimator)
         {
-            using (var bw = new BinaryWriter(stream))
+            Serialize(stream, cardinalityEstimator, false);
+        }
+
+        /// <summary>
+        /// Serializes <paramref name="cardinalityEstimator"/> to <paramref name="stream"/>.
+        /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <param name="cardinalityEstimator">The cardinality estimator.</param>
+        /// <param name="leaveOpen">if set to <see langword="true" /> leave the stream open after serialization.</param>
+        public void Serialize(Stream stream, CardinalityEstimator cardinalityEstimator, bool leaveOpen)
+        {
+            using (var bw = new BinaryWriter(stream, Encoding.UTF8, leaveOpen))
             {
                 bw.Write(DataFormatMajorVersion);
                 bw.Write(DataFormatMinorVersion);
@@ -61,7 +76,7 @@ namespace CardinalityEstimation
 
                 bw.Write((byte)data.HashFunctionId);
                 bw.Write(data.BitsPerIndex);
-                bw.Write((byte) (((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
+                bw.Write((byte)(((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
                 if (data.DirectCount != null)
                 {
                     bw.Write(data.DirectCount.Count);
@@ -94,11 +109,24 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Deserialize a <see cref="CardinalityEstimator" /> from the given <paramref name="stream" />
+        /// Deserialize a <see cref="CardinalityEstimator" /> from the given <paramref name="stream" />
         /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <returns>A new CardinalityEstimator.</returns>
         public CardinalityEstimator Deserialize(Stream stream)
         {
-            using (var br = new BinaryReader(stream))
+            return Deserialize(stream, false);
+        }
+
+        /// <summary>
+        /// Deserialize a <see cref="CardinalityEstimator" /> from the given <paramref name="stream" />
+        /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <param name="leaveOpen">if set to <see langword="true" /> leave the stream open after deserialization.</param>
+        /// <returns>A new CardinalityEstimator.</returns>
+        public CardinalityEstimator Deserialize(Stream stream, bool leaveOpen)
+        {
+            using (var br = new BinaryReader(stream, Encoding.UTF8, leaveOpen))
             {
                 int dataFormatMajorVersion = br.ReadUInt16();
                 int dataFormatMinorVersion = br.ReadUInt16();
