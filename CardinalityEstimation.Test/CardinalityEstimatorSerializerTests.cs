@@ -66,7 +66,7 @@ namespace CardinalityEstimation.Test
             byte[] results;
             using (var memoryStream = new MemoryStream())
             {
-                serializer.Serialize(memoryStream, hll);
+                serializer.Serialize(memoryStream, hll, false);
 
                 results = memoryStream.ToArray();
             }
@@ -98,7 +98,7 @@ namespace CardinalityEstimation.Test
             byte[] results;
             using (var memoryStream = new MemoryStream())
             {
-                serializer.Serialize(memoryStream, hll);
+                serializer.Serialize(memoryStream, hll, false);
 
                 results = memoryStream.ToArray();
             }
@@ -132,7 +132,7 @@ namespace CardinalityEstimation.Test
             byte[] results;
             using (var memoryStream = new MemoryStream())
             {
-                serializer.Serialize(memoryStream, hll);
+                serializer.Serialize(memoryStream, hll, false);
 
                 results = memoryStream.ToArray();
             }
@@ -246,7 +246,7 @@ namespace CardinalityEstimation.Test
 
                 using (var memoryStream = new MemoryStream())
                 {
-                    serializer.Serialize(memoryStream, original);
+                    serializer.Serialize(memoryStream, original, false);
                     results = memoryStream.ToArray();
                 }
 
@@ -254,7 +254,7 @@ namespace CardinalityEstimation.Test
                 CardinalityEstimator deserialized;
                 using (var memoryStream = new MemoryStream(results))
                 {
-                    deserialized = serializer.Deserialize(memoryStream);
+                    deserialized = serializer.Deserialize(memoryStream, false);
                 }
 
                 // Add the elements again, should have no effect on state
@@ -331,7 +331,7 @@ namespace CardinalityEstimation.Test
             byte[] customSerializerResults;
             using (var memoryStream = new MemoryStream())
             {
-                customSerializer.Serialize(memoryStream, hll);
+                customSerializer.Serialize(memoryStream, hll, false);
                 customSerializerResults = memoryStream.ToArray();
                 customSize = customSerializerResults.Length;
             }
@@ -359,14 +359,14 @@ namespace CardinalityEstimation.Test
             byte[] results;
             using (var memoryStream = new MemoryStream())
             {
-                serializer.Serialize(memoryStream, hll);
+                serializer.Serialize(memoryStream, hll, false);
 
                 results = memoryStream.ToArray();
             }
 
             using (var memoryStream = new MemoryStream(results))
             {
-                hll2 = serializer.Deserialize(memoryStream);
+                hll2 = serializer.Deserialize(memoryStream, false);
             }
 
             CardinalityEstimatorState data = hll.GetState();
