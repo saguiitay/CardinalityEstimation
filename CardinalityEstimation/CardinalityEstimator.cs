@@ -378,18 +378,15 @@ namespace CardinalityEstimation
         /// </returns>
         public static CardinalityEstimator MergeAll(IEnumerable<CardinalityEstimator> estimators)
         {
-            if (estimators == null)
-                return null;
             CardinalityEstimator result = null;
-            foreach (var estimator in estimators)
-            {
-                if (estimator != null)
-                {
-                    if (result == null)
-                        result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
-                     result.Merge(estimator);
-                }
-            }
+            if (estimators != null)
+                foreach (var estimator in estimators)
+                    if (estimator != null)
+                    {
+                        if (result == null)
+                            result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
+                        result.Merge(estimator);
+                    }
 
             return result;
         }
