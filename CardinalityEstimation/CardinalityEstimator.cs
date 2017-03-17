@@ -1,23 +1,19 @@
-﻿// --------------------------------------------------------
-// Copyright © Microsoft Corporation.  All rights reserved.
-// --------------------------------------------------------
-
-// /*
+﻿// /*  
 //     See https://github.com/Microsoft/CardinalityEstimation.
 //     The MIT License (MIT)
-//
+// 
 //     Copyright (c) 2015 Microsoft
-//
+// 
 //     Permission is hereby granted, free of charge, to any person obtaining a copy
 //     of this software and associated documentation files (the "Software"), to deal
 //     in the Software without restriction, including without limitation the rights
 //     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 //     copies of the Software, and to permit persons to whom the Software is
 //     furnished to do so, subject to the following conditions:
-//
+// 
 //     The above copyright notice and this permission notice shall be included in all
 //     copies or substantial portions of the Software.
-//
+// 
 //     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 //     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 //     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -56,9 +52,6 @@ namespace CardinalityEstimation
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
         ICardinalityEstimator<byte[]>
     {
-        /// <summary> Max number of elements to hold in the direct representation </summary>
-        private const int DirectCounterMaxElements = 100;
-
         /// <summary> Number of bits for indexing HLL substreams - the number of estimators is 2^bitsPerIndex </summary>
         private readonly int bitsPerIndex;
 
@@ -74,17 +67,14 @@ namespace CardinalityEstimation
         /// <summary> Threshold determining whether to use LinearCounting or HyperLogLog based on an initial estimate </summary>
         private readonly double subAlgorithmSelectionThreshold;
 
-        /// <summary> Max number of elements to hold in the sparse representation </summary>
-        private readonly int sparseMaxElements;
-
-        /// <summary> ID of hash function used </summary>
-        private readonly HashFunctionId hashFunctionId;
-
         /// <summary> Lookup table for the dense representation </summary>
         private byte[] lookupDense;
 
         /// <summary> Lookup dictionary for the sparse representation </summary>
         private IDictionary<ushort, byte> lookupSparse;
+
+        /// <summary> Max number of elements to hold in the sparse representation </summary>
+        private readonly int sparseMaxElements;
 
         /// <summary> Indicates that the sparse representation is currently used </summary>
         private bool isSparse;
@@ -92,10 +82,15 @@ namespace CardinalityEstimation
         /// <summary> Set for direct counting of elements </summary>
         private HashSet<ulong> directCount;
 
+        /// <summary> Max number of elements to hold in the direct representation </summary>
+        private const int DirectCounterMaxElements = 100;
+
+        /// <summary> ID of hash function used </summary>
+        private readonly HashFunctionId hashFunctionId;
+
         /// <summary> Hash function used </summary>
         [NonSerialized]
         private IHashFunction hashFunction;
-
         /// <summary>
         ///     C'tor
         /// </summary>
@@ -107,7 +102,7 @@ namespace CardinalityEstimation
         ///     error or less
         /// </param>
         /// <param name="hashFunctionId">Type of hash function to use. Default is Murmur3, and FNV-1a is provided for legacy support</param>
-        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3) : this(CreateEmptyState(b, hashFunctionId)) { }
+        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3) : this(CreateEmptyState(b, hashFunctionId)) {}
 
         /// <summary>
         ///     Creates a CardinalityEstimator with the given <paramref name="state" />
@@ -116,7 +111,7 @@ namespace CardinalityEstimation
         {
             this.bitsPerIndex = state.BitsPerIndex;
             this.bitsForHll = 64 - this.bitsPerIndex;
-            this.m = (int)Math.Pow(2, this.bitsPerIndex);
+            this.m = (int) Math.Pow(2, this.bitsPerIndex);
             this.alphaM = GetAlphaM(this.m);
             this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
 
@@ -134,8 +129,7 @@ namespace CardinalityEstimation
             this.CountAdditions = state.CountAdditions;
 
             // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
-            this.sparseMaxElements = Math.Max(0, this.m / 15 - 10);
-
+            this.sparseMaxElements = Math.Max(0, this.m/15 - 10);
             // If necessary, switch to the dense representation
             if (this.sparseMaxElements <= 0)
             {
@@ -157,70 +151,6 @@ namespace CardinalityEstimation
         }
 
         public ulong CountAdditions { get; private set; }
-
-        /// <summary>
-        ///     Merges the given CardinalityEstimator instances and returns the result
-        /// </summary>
-        /// <param name="estimators">Instances of CardinalityEstimator</param>
-        /// <returns>The merged CardinalityEstimator</returns>
-        public static CardinalityEstimator Merge(IList<CardinalityEstimator> estimators)
-        {
-            if (!estimators.Any())
-            {
-                throw new ArgumentException(string.Format("Was asked to merge 0 instances of {0}", typeof(CardinalityEstimator)),
-                    "estimators");
-            }
-
-            var ans = new CardinalityEstimator(estimators[0].bitsPerIndex);
-            foreach (CardinalityEstimator estimator in estimators)
-            {
-                ans.Merge(estimator);
-            }
-
-            return ans;
-        }
-
-        /// <summary>
-        /// Merge <paramref name="estimators"/> into a new <see cref="CardinalityEstimator"/>.
-        /// </summary>
-        /// <remarks>
-        /// The <c>b</c> and <c>hashFunctionId</c> provided to the constructor for the result are taken from the first
-        /// <see cref="CardinalityEstimator"/> in <paramref name="estimators"/>
-        /// </remarks>
-        /// <param name="estimators">The <see cref="CardinalityEstimator"/> instances to merge.</param>
-        /// <returns>
-        /// A new <see cref="CardinalityEstimator"/> if there is at least one non-null <see cref="CardinalityEstimator"/> in
-        /// <paramref name="estimators"/>; otherwise <see langword="null"/>.
-        /// </returns>
-        public static CardinalityEstimator MergeAll(IEnumerable<CardinalityEstimator> estimators)
-        {
-            if (estimators == null)
-                return null;
-            CardinalityEstimator result = null;
-            foreach (var estimator in estimators)
-            {
-                if (estimator != null)
-                {
-                    if (result == null)
-                        result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
-                     result.Merge(estimator);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        ///     Returns the base-2 logarithm of <paramref name="x" />.
-        ///     This implementation is faster than <see cref="Math.Log(double,double)" /> as it avoids input checks
-        /// </summary>
-        /// <param name="x"></param>
-        /// <returns>The base-2 logarithm of <paramref name="x" /></returns>
-        public static double Log2(double x)
-        {
-            const double ln2 = 0.693147180559945309417232121458;
-            return Math.Log(x) / ln2;
-        }
 
         public void Add(string element)
         {
@@ -278,12 +208,13 @@ namespace CardinalityEstimation
             this.CountAdditions++;
         }
 
+
         public ulong Count()
         {
             // If only a few elements have been seen, return the exact count
             if (this.directCount != null)
             {
-                return (ulong)this.directCount.Count;
+                return (ulong) this.directCount.Count;
             }
 
             double zInverse = 0;
@@ -314,8 +245,8 @@ namespace CardinalityEstimation
                 }
             }
 
-            double e = this.alphaM * this.m * this.m / zInverse;
-            if (e <= 5.0 * this.m)
+            double e = this.alphaM*this.m*this.m/zInverse;
+            if (e <= 5.0*this.m)
             {
                 e = BiasCorrection.CorrectBias(e, this.bitsPerIndex);
             }
@@ -324,7 +255,7 @@ namespace CardinalityEstimation
             if (v > 0)
             {
                 // LinearCounting estimate
-                h = this.m * Math.Log(this.m / v);
+                h = this.m*Math.Log(this.m/v);
             }
             else
             {
@@ -333,9 +264,9 @@ namespace CardinalityEstimation
 
             if (h <= this.subAlgorithmSelectionThreshold)
             {
-                return (ulong)Math.Round(h);
+                return (ulong) Math.Round(h);
             }
-            return (ulong)Math.Round(e);
+            return (ulong) Math.Round(e);
         }
 
         /// <summary>
@@ -412,26 +343,55 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Returns the number of leading zeroes in the <paramref name="bitsToCount" /> highest bits of <paramref name="hash" />, plus one
+        ///     Merges the given CardinalityEstimator instances and returns the result
         /// </summary>
-        /// <param name="hash">Hash value to calculate the statistic on</param>
-        /// <param name="bitsToCount">Lowest bit to count from <paramref name="hash" /></param>
-        /// <returns>The number of leading zeroes in the binary representation of <paramref name="hash" />, plus one</returns>
-        internal static byte GetSigma(ulong hash, int bitsToCount)
+        /// <param name="estimators">Instances of CardinalityEstimator</param>
+        /// <returns>The merged CardinalityEstimator</returns>
+        public static CardinalityEstimator Merge(IList<CardinalityEstimator> estimators)
         {
-            byte sigma = 1;
-            for (int i = bitsToCount - 1; i >= 0; --i)
+            if (!estimators.Any())
             {
-                if (((hash >> i) & 1) == 0)
+                throw new ArgumentException(string.Format("Was asked to merge 0 instances of {0}", typeof (CardinalityEstimator)),
+                    "estimators");
+            }
+
+            var ans = new CardinalityEstimator(estimators[0].bitsPerIndex);
+            foreach (CardinalityEstimator estimator in estimators)
+            {
+                ans.Merge(estimator);
+            }
+
+            return ans;
+        }
+
+        /// <summary>
+        /// Merge <paramref name="estimators"/> into a new <see cref="CardinalityEstimator"/>.
+        /// </summary>
+        /// <remarks>
+        /// The <c>b</c> and <c>hashFunctionId</c> provided to the constructor for the result are taken from the first
+        /// <see cref="CardinalityEstimator"/> in <paramref name="estimators"/>
+        /// </remarks>
+        /// <param name="estimators">The <see cref="CardinalityEstimator"/> instances to merge.</param>
+        /// <returns>
+        /// A new <see cref="CardinalityEstimator"/> if there is at least one non-null <see cref="CardinalityEstimator"/> in
+        /// <paramref name="estimators"/>; otherwise <see langword="null"/>.
+        /// </returns>
+        public static CardinalityEstimator MergeAll(IEnumerable<CardinalityEstimator> estimators)
+        {
+            if (estimators == null)
+                return null;
+            CardinalityEstimator result = null;
+            foreach (var estimator in estimators)
+            {
+                if (estimator != null)
                 {
-                    sigma++;
-                }
-                else
-                {
-                    break;
+                    if (result == null)
+                        result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
+                     result.Merge(estimator);
                 }
             }
-            return sigma;
+
+            return result;
         }
 
         internal CardinalityEstimatorState GetState()
@@ -446,12 +406,6 @@ namespace CardinalityEstimation
                 HashFunctionId = this.hashFunctionId,
                 CountAdditions = this.CountAdditions,
             };
-        }
-
-        [OnDeserialized]
-        internal void SetHashFunctionAfterDeserializing(StreamingContext context)
-        {
-            this.hashFunction = HashFunctionFactory.GetHashFunction(this.hashFunctionId);
         }
 
         /// <summary>
@@ -491,73 +445,36 @@ namespace CardinalityEstimation
             {
                 case 4:
                     return 10;
-
                 case 5:
                     return 20;
-
                 case 6:
                     return 40;
-
                 case 7:
                     return 80;
-
                 case 8:
                     return 220;
-
                 case 9:
                     return 400;
-
                 case 10:
                     return 900;
-
                 case 11:
                     return 1800;
-
                 case 12:
                     return 3100;
-
                 case 13:
                     return 6500;
-
                 case 14:
                     return 11500;
-
                 case 15:
                     return 20000;
-
                 case 16:
                     return 50000;
-
                 case 17:
                     return 120000;
-
                 case 18:
                     return 350000;
             }
             throw new ArgumentOutOfRangeException("bits", "Unexpected number of bits (should never happen)");
-        }
-
-        /// <summary>
-        ///     Gets the appropriate value of alpha_M for the given <paramref name="m" />
-        /// </summary>
-        /// <param name="m">size of the lookup table</param>
-        /// <returns>alpha_M for bias correction</returns>
-        private static double GetAlphaM(int m)
-        {
-            switch (m)
-            {
-                case 16:
-                    return 0.673;
-
-                case 32:
-                    return 0.697;
-
-                case 64:
-                    return 0.709;
-
-                default:
-                    return 0.7213 / (1 + 1.079 / m);
-            }
         }
 
         /// <summary>
@@ -575,7 +492,7 @@ namespace CardinalityEstimation
                 }
             }
 
-            var substream = (ushort)(hashCode >> this.bitsForHll);
+            var substream = (ushort) (hashCode >> this.bitsForHll);
             byte sigma = GetSigma(hashCode, this.bitsForHll);
             if (this.isSparse)
             {
@@ -594,6 +511,38 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
+        ///     Gets the appropriate value of alpha_M for the given <paramref name="m" />
+        /// </summary>
+        /// <param name="m">size of the lookup table</param>
+        /// <returns>alpha_M for bias correction</returns>
+        private static double GetAlphaM(int m)
+        {
+            switch (m)
+            {
+                case 16:
+                    return 0.673;
+                case 32:
+                    return 0.697;
+                case 64:
+                    return 0.709;
+                default:
+                    return 0.7213/(1 + 1.079/m);
+            }
+        }
+
+        /// <summary>
+        ///     Returns the base-2 logarithm of <paramref name="x" />.
+        ///     This implementation is faster than <see cref="Math.Log(double,double)" /> as it avoids input checks
+        /// </summary>
+        /// <param name="x"></param>
+        /// <returns>The base-2 logarithm of <paramref name="x" /></returns>
+        public static double Log2(double x)
+        {
+            const double ln2 = 0.693147180559945309417232121458;
+            return Math.Log(x)/ln2;
+        }
+
+        /// <summary>
         ///     Computes the hash of the given <paramref name="bytes" />
         /// </summary>
         /// <param name="bytes">data to compute the hash for</param>
@@ -601,6 +550,29 @@ namespace CardinalityEstimation
         private ulong GetHashCode(byte[] bytes)
         {
             return this.hashFunction.GetHashCode(bytes);
+        }
+
+        /// <summary>
+        ///     Returns the number of leading zeroes in the <paramref name="bitsToCount" /> highest bits of <paramref name="hash" />, plus one
+        /// </summary>
+        /// <param name="hash">Hash value to calculate the statistic on</param>
+        /// <param name="bitsToCount">Lowest bit to count from <paramref name="hash" /></param>
+        /// <returns>The number of leading zeroes in the binary representation of <paramref name="hash" />, plus one</returns>
+        internal static byte GetSigma(ulong hash, int bitsToCount)
+        {
+            byte sigma = 1;
+            for (int i = bitsToCount - 1; i >= 0; --i)
+            {
+                if (((hash >> i) & 1) == 0)
+                {
+                    sigma++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return sigma;
         }
 
         /// <summary>
@@ -621,6 +593,12 @@ namespace CardinalityEstimation
             }
             this.lookupSparse = null;
             this.isSparse = false;
+        }
+
+        [OnDeserialized]
+        internal void SetHashFunctionAfterDeserializing(StreamingContext context)
+        {
+            this.hashFunction = HashFunctionFactory.GetHashFunction(this.hashFunctionId);
         }
     }
 }
