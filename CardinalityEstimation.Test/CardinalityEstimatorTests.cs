@@ -328,9 +328,19 @@ namespace CardinalityEstimation.Test
             Console.WriteLine("Run time: {0}", runStopwatch.Elapsed);
             Console.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
 
-            double obsError = Math.Abs(mergedHll.Count()/(double) (expectedCount) - 1.0);
+            double obsError = Math.Abs(mergedHll.Count() / (double) (expectedCount) - 1.0);
             Console.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
-            Assert.IsTrue(obsError <= maxAcceptedError, string.Format("Observed error was over {0}", maxAcceptedError));
+            Assert.IsTrue(obsError <= maxAcceptedError, "Observed error was over {0}", maxAcceptedError);
+            Console.WriteLine();
+
+            // Merge
+            CardinalityEstimator mergedAllHll = CardinalityEstimator.MergeAll(hlls);
+            Console.WriteLine("Run time: {0}", runStopwatch.Elapsed);
+            Console.WriteLine("Expected {0}, got {1}", expectedCount, mergedAllHll.Count());
+
+            double obsAllError = Math.Abs(mergedAllHll.Count() / (double)(expectedCount) - 1.0);
+            Console.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsAllError);
+            Assert.IsTrue(obsAllError <= maxAcceptedError, "Observed error was over {0}", maxAcceptedError);
             Console.WriteLine();
         }
 

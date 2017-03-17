@@ -364,6 +364,33 @@ namespace CardinalityEstimation
             return ans;
         }
 
+        /// <summary>
+        /// Merge <paramref name="estimators"/> into a new <see cref="CardinalityEstimator"/>.
+        /// </summary>
+        /// <remarks>
+        /// The <c>b</c> and <c>hashFunctionId</c> provided to the constructor for the result are taken from the first
+        /// <see cref="CardinalityEstimator"/> in <paramref name="estimators"/>
+        /// </remarks>
+        /// <param name="estimators">The <see cref="CardinalityEstimator"/> instances to merge.</param>
+        /// <returns>
+        /// A new <see cref="CardinalityEstimator"/> if there is at least one non-null <see cref="CardinalityEstimator"/> in
+        /// <paramref name="estimators"/>; otherwise <see langword="null"/>.
+        /// </returns>
+        public static CardinalityEstimator MergeAll(IEnumerable<CardinalityEstimator> estimators)
+        {
+            CardinalityEstimator result = null;
+            if (estimators != null)
+                foreach (var estimator in estimators)
+                    if (estimator != null)
+                    {
+                        if (result == null)
+                            result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
+                        result.Merge(estimator);
+                    }
+
+            return result;
+        }
+
         internal CardinalityEstimatorState GetState()
         {
             return new CardinalityEstimatorState
