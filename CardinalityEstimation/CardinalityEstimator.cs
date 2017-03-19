@@ -343,25 +343,36 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Merges the given CardinalityEstimator instances and returns the result
+        ///     Merges <paramref name="estimators" /> into a new <see cref="CardinalityEstimator" />.
         /// </summary>
-        /// <param name="estimators">Instances of CardinalityEstimator</param>
-        /// <returns>The merged CardinalityEstimator</returns>
-        public static CardinalityEstimator Merge(IList<CardinalityEstimator> estimators)
+        /// <param name="estimators">Instances of <see cref="CardinalityEstimator"/></param>
+        /// <returns>
+        ///     A new <see cref="CardinalityEstimator" /> if there is at least one non-null <see cref="CardinalityEstimator" /> in
+        ///     <paramref name="estimators" />; otherwise <see langword="null" />.
+        /// </returns>
+        /// <remarks>
+        /// The <c>b</c> and <c>hashFunctionId</c> provided to the constructor for the result are taken from the first non-null
+        /// <see cref="CardinalityEstimator"/> in <paramref name="estimators"/>. The remaining estimators are assumed to use the same parameters.
+        /// </remarks>
+        public static CardinalityEstimator Merge(IEnumerable<CardinalityEstimator> estimators)
         {
-            if (!estimators.Any())
+            if (estimators == null)
             {
-                throw new ArgumentException(string.Format("Was asked to merge 0 instances of {0}", typeof (CardinalityEstimator)),
-                    "estimators");
+                return null;
             }
 
-            var ans = new CardinalityEstimator(estimators[0].bitsPerIndex);
-            foreach (CardinalityEstimator estimator in estimators)
+            CardinalityEstimator result = null;
+            foreach (CardinalityEstimator estimator in estimators.Where(e => e != null))
             {
-                ans.Merge(estimator);
+                if (result == null)
+                {
+                    result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
+                }
+
+                result.Merge(estimator);
             }
 
-            return ans;
+            return result;
         }
 
         internal CardinalityEstimatorState GetState()
