@@ -26,10 +26,14 @@
 namespace CardinalityEstimation.Test
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Runtime.Serialization.Formatters.Binary;
+
+    using CardinalityEstimation.Hash;
+
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     [TestClass]
@@ -147,6 +151,40 @@ namespace CardinalityEstimation.Test
             RunRecreationFromData(10000);
             RunRecreationFromData(100000);
             RunRecreationFromData(1000000);
+        }
+
+        [TestMethod]
+        public void StaticMergeTest()
+        {
+            const int expectedBitsPerIndex = 11;
+            var estimators = new CardinalityEstimator[10];
+            for (var i = 0; i < estimators.Length; i++)
+            {
+                estimators[i] = new CardinalityEstimator(expectedBitsPerIndex);
+                estimators[i].Add(Rand.Next());
+            }
+
+            CardinalityEstimator merged = CardinalityEstimator.Merge(estimators);
+
+            Assert.AreEqual(10UL, merged.Count());
+            Assert.AreEqual(expectedBitsPerIndex, merged.GetState().BitsPerIndex);
+        }
+
+        [TestMethod]
+        public void StaticMergeHandlesNullParameter()
+        {
+            CardinalityEstimator result = CardinalityEstimator.Merge(null as IEnumerable<CardinalityEstimator>);
+            Assert.IsNull(result);
+        }
+
+        [TestMethod]
+        public void StaticMergeHandlesNullElements()
+        {
+            const int expectedBitsPerIndex = 11;
+            var estimators = new List<CardinalityEstimator> { null, new CardinalityEstimator(expectedBitsPerIndex, HashFunctionId.Fnv1A), null };
+            CardinalityEstimator result = CardinalityEstimator.Merge(estimators);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(expectedBitsPerIndex, result.GetState().BitsPerIndex);
         }
 
         [TestMethod]
