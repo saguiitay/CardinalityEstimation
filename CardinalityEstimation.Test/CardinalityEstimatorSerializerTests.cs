@@ -125,35 +125,7 @@ namespace CardinalityEstimation.Test
         [TestMethod]
         public void TestSerializerCardinality100000()
         {
-            CardinalityEstimator hll = CreateAndFillCardinalityEstimator(100000);
-
-            var serializer = new CardinalityEstimatorSerializer();
-
-            byte[] results;
-            using (var memoryStream = new MemoryStream())
-            {
-                serializer.Serialize(memoryStream, hll, false);
-
-                results = memoryStream.ToArray();
-            }
-
-            CardinalityEstimatorState data = hll.GetState();
-
-            // Expected length is:
-            // 4 bytes for the major and minor versions
-            // 1 byte for the HashFunctionId
-            // 4 bytes for the Bits in Index 
-            // 1 byte for the IsSparse and IsDirectCount flags
-            // 4 bytes for the number of elements in lookupDense
-            // 1 bytes for each element (ulong) in lookupDense
-            // 8 bytes for CountAdded
-            Assert.AreEqual(22 + data.LookupDense.Length, results.Length);
-
-            Assert.AreEqual((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(0, results[9]); // IsSparse = false AND IsDirectCount = false
-            Assert.AreEqual(data.LookupDense.Length, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
-            Assert.AreEqual(100000UL, BitConverter.ToUInt64(results.Skip(14 + data.LookupDense.Length).Take(8).ToArray(), 0)); // CountAdditions = 100000
+            TestSerializerCardinality100000(false);
         }
 
 
@@ -164,7 +136,8 @@ namespace CardinalityEstimation.Test
             {
                 TestSerializerCardinality10();
                 TestSerializerCardinality1000();
-                TestSerializerCardinality100000();
+                TestSerializerCardinality100000(false);
+                TestSerializerCardinality100000(true);
             }
         }
 
@@ -176,6 +149,10 @@ namespace CardinalityEstimation.Test
                 TestDeserializer(10);
                 TestDeserializer(1000);
                 TestDeserializer(100000);
+
+                TestDeserializer2(10);
+                TestDeserializer2(1000);
+                TestDeserializer2(100000);
             }
         }
 
@@ -369,7 +346,84 @@ namespace CardinalityEstimation.Test
                 hll2 = serializer.Deserialize(memoryStream, false);
             }
 
+            CompareHLL(hll, hll2);
+        }
+
+        private void TestDeserializer2(int cardinality)
+        {
+            CardinalityEstimator hll = CreateAndFillCardinalityEstimator(cardinality);
+            CardinalityEstimator hll2;
+
+            var serializer = new CardinalityEstimatorSerializer();
+
+            byte[] results;
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var bw = new BinaryWriter(memoryStream))
+                {
+                    serializer.Write(bw, hll);
+                }
+
+                results = memoryStream.ToArray();
+            }
+
+            using (var memoryStream = new MemoryStream(results))
+            {
+                using (var br = new BinaryReader(memoryStream))
+                {
+                    hll2 = serializer.Read(br);
+                }
+            }
+
+            CompareHLL(hll, hll2);
+        }
+
+        private void TestSerializerCardinality100000(bool useBinWriter)
+        {
+            CardinalityEstimator hll = CreateAndFillCardinalityEstimator(100000);
+
+            var serializer = new CardinalityEstimatorSerializer();
+
+            byte[] results;
+            using (var memoryStream = new MemoryStream())
+            {
+                if (useBinWriter)
+                {
+                    using (var bw = new BinaryWriter(memoryStream))
+                    {
+                        serializer.Write(bw, hll);
+                    }
+                }
+                else
+                {
+                    serializer.Serialize(memoryStream, hll, false);
+                }
+
+                results = memoryStream.ToArray();
+            }
+
             CardinalityEstimatorState data = hll.GetState();
+
+            // Expected length is:
+            // 4 bytes for the major and minor versions
+            // 1 byte for the HashFunctionId
+            // 4 bytes for the Bits in Index 
+            // 1 byte for the IsSparse and IsDirectCount flags
+            // 4 bytes for the number of elements in lookupDense
+            // 1 bytes for each element (ulong) in lookupDense
+            // 8 bytes for CountAdded
+            Assert.AreEqual(22 + data.LookupDense.Length, results.Length);
+
+            Assert.AreEqual((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
+            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.AreEqual(0, results[9]); // IsSparse = false AND IsDirectCount = false
+            Assert.AreEqual(data.LookupDense.Length, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
+            Assert.AreEqual(100000UL, BitConverter.ToUInt64(results.Skip(14 + data.LookupDense.Length).Take(8).ToArray(), 0)); // CountAdditions = 100000
+        }
+
+        private void CompareHLL(CardinalityEstimator hll1, CardinalityEstimator hll2)
+        {
+            CardinalityEstimatorState data = hll1.GetState();
             CardinalityEstimatorState data2 = hll2.GetState();
 
             Assert.AreEqual(data.BitsPerIndex, data2.BitsPerIndex);
