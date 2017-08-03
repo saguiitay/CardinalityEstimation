@@ -69,43 +69,53 @@ namespace CardinalityEstimation
         {
             using (var bw = new BinaryWriter(stream, Encoding.UTF8, leaveOpen))
             {
-                bw.Write(DataFormatMajorVersion);
-                bw.Write(DataFormatMinorVersion);
-
-                CardinalityEstimatorState data = cardinalityEstimator.GetState();
-
-                bw.Write((byte)data.HashFunctionId);
-                bw.Write(data.BitsPerIndex);
-                bw.Write((byte)(((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
-                if (data.DirectCount != null)
-                {
-                    bw.Write(data.DirectCount.Count);
-                    foreach (ulong element in data.DirectCount)
-                    {
-                        bw.Write(element);
-                    }
-                }
-                else if (data.IsSparse)
-                {
-                    bw.Write(data.LookupSparse.Count);
-                    foreach (KeyValuePair<ushort, byte> element in data.LookupSparse)
-                    {
-                        bw.Write(element.Key);
-                        bw.Write(element.Value);
-                    }
-                }
-                else
-                {
-                    bw.Write(data.LookupDense.Length);
-                    foreach (byte element in data.LookupDense)
-                    {
-                        bw.Write(element);
-                    }
-                }
-
-                bw.Write(data.CountAdditions);
-                bw.Flush();
+                Write(bw, cardinalityEstimator);
             }
+        }
+
+        /// <summary>
+        /// Writer binary representation of <paramref name="cardinalityEstimator"/> using <paramref name="writer"/>
+        /// </summary>
+        /// <param name="writer">The writer</param>
+        /// <param name="cardinalityEstimator">The cardinality estimator.</param>
+        public void Write(BinaryWriter writer, CardinalityEstimator cardinalityEstimator)
+        {
+            writer.Write(DataFormatMajorVersion);
+            writer.Write(DataFormatMinorVersion);
+
+            CardinalityEstimatorState data = cardinalityEstimator.GetState();
+
+            writer.Write((byte)data.HashFunctionId);
+            writer.Write(data.BitsPerIndex);
+            writer.Write((byte)(((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
+            if (data.DirectCount != null)
+            {
+                writer.Write(data.DirectCount.Count);
+                foreach (ulong element in data.DirectCount)
+                {
+                    writer.Write(element);
+                }
+            }
+            else if (data.IsSparse)
+            {
+                writer.Write(data.LookupSparse.Count);
+                foreach (KeyValuePair<ushort, byte> element in data.LookupSparse)
+                {
+                    writer.Write(element.Key);
+                    writer.Write(element.Value);
+                }
+            }
+            else
+            {
+                writer.Write(data.LookupDense.Length);
+                foreach (byte element in data.LookupDense)
+                {
+                    writer.Write(element);
+                }
+            }
+
+            writer.Write(data.CountAdditions);
+            writer.Flush();
         }
 
         /// <summary>
@@ -128,82 +138,92 @@ namespace CardinalityEstimation
         {
             using (var br = new BinaryReader(stream, Encoding.UTF8, leaveOpen))
             {
-                int dataFormatMajorVersion = br.ReadUInt16();
-                int dataFormatMinorVersion = br.ReadUInt16();
-
-                AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
-
-                HashFunctionId hashFunctionId;
-                if (dataFormatMajorVersion >= 2)
-                {
-                    // Starting with version 2.0, the serializer writes the hash function ID
-                    hashFunctionId = (HashFunctionId) br.ReadByte();
-                }
-                else
-                {
-                    // Versions before 2.0 all used FNV-1a
-                    hashFunctionId = HashFunctionId.Fnv1A;
-                }
-                
-                int bitsPerIndex = br.ReadInt32();
-                byte flags = br.ReadByte();
-                bool isSparse = ((flags & 2) == 2);
-                bool isDirectCount = ((flags & 1) == 1);
-
-                HashSet<ulong> directCount = null;
-                IDictionary<ushort, byte> lookupSparse = isSparse ? new Dictionary<ushort, byte>() : null;
-                byte[] lookupDense = null;
-
-                if (isDirectCount)
-                {
-                    int count = br.ReadInt32();
-                    directCount = new HashSet<ulong>();
-
-                    for (var i = 0; i < count; i++)
-                    {
-                        ulong element = br.ReadUInt64();
-                        directCount.Add(element);
-                    }
-                }
-                else if (isSparse)
-                {
-                    int count = br.ReadInt32();
-
-                    for (var i = 0; i < count; i++)
-                    {
-                        ushort elementKey = br.ReadUInt16();
-                        byte elementValue = br.ReadByte();
-                        lookupSparse.Add(elementKey, elementValue);
-                    }
-                }
-                else
-                {
-                    int count = br.ReadInt32();
-                    lookupDense = br.ReadBytes(count);
-                }
-
-                // Starting with version 2.1, the serializer writes CountAdditions
-                ulong countAdditions = 0UL;
-                if (dataFormatMajorVersion >= 2 && dataFormatMinorVersion >= 1)
-                {
-                    countAdditions = br.ReadUInt64();
-                }
-
-                var data = new CardinalityEstimatorState
-                {
-                    HashFunctionId = hashFunctionId,
-                    BitsPerIndex = bitsPerIndex,
-                    DirectCount = directCount,
-                    IsSparse = isSparse,
-                    LookupDense = lookupDense,
-                    LookupSparse = lookupSparse,
-                    CountAdditions = countAdditions,
-                };
-
-                var result = new CardinalityEstimator(data);
-
-                return result;
+                return Read(br);
             }
+        }
+
+        /// <summary>
+        /// Reads a <see cref="CardinalityEstimator" /> using the given <paramref name="reader" />
+        /// </summary>
+        /// <param name="reader">The reader</param>
+        /// <returns>An instance of <see cref="CardinalityEstimator" /></returns>
+        public CardinalityEstimator Read(BinaryReader reader)
+        {
+            int dataFormatMajorVersion = reader.ReadUInt16();
+            int dataFormatMinorVersion = reader.ReadUInt16();
+
+            AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
+
+            HashFunctionId hashFunctionId;
+            if (dataFormatMajorVersion >= 2)
+            {
+                // Starting with version 2.0, the serializer writes the hash function ID
+                hashFunctionId = (HashFunctionId)reader.ReadByte();
+            }
+            else
+            {
+                // Versions before 2.0 all used FNV-1a
+                hashFunctionId = HashFunctionId.Fnv1A;
+            }
+
+            int bitsPerIndex = reader.ReadInt32();
+            byte flags = reader.ReadByte();
+            bool isSparse = ((flags & 2) == 2);
+            bool isDirectCount = ((flags & 1) == 1);
+
+            HashSet<ulong> directCount = null;
+            IDictionary<ushort, byte> lookupSparse = isSparse ? new Dictionary<ushort, byte>() : null;
+            byte[] lookupDense = null;
+
+            if (isDirectCount)
+            {
+                int count = reader.ReadInt32();
+                directCount = new HashSet<ulong>();
+
+                for (var i = 0; i < count; i++)
+                {
+                    ulong element = reader.ReadUInt64();
+                    directCount.Add(element);
+                }
+            }
+            else if (isSparse)
+            {
+                int count = reader.ReadInt32();
+
+                for (var i = 0; i < count; i++)
+                {
+                    ushort elementKey = reader.ReadUInt16();
+                    byte elementValue = reader.ReadByte();
+                    lookupSparse.Add(elementKey, elementValue);
+                }
+            }
+            else
+            {
+                int count = reader.ReadInt32();
+                lookupDense = reader.ReadBytes(count);
+            }
+
+            // Starting with version 2.1, the serializer writes CountAdditions
+            ulong countAdditions = 0UL;
+            if (dataFormatMajorVersion >= 2 && dataFormatMinorVersion >= 1)
+            {
+                countAdditions = reader.ReadUInt64();
+            }
+
+            var data = new CardinalityEstimatorState
+            {
+                HashFunctionId = hashFunctionId,
+                BitsPerIndex = bitsPerIndex,
+                DirectCount = directCount,
+                IsSparse = isSparse,
+                LookupDense = lookupDense,
+                LookupSparse = lookupSparse,
+                CountAdditions = countAdditions,
+            };
+
+            var result = new CardinalityEstimator(data);
+
+            return result;
         }
 
         /// <summary>
