@@ -9,7 +9,7 @@
         <licenseUrl>https://github.com/Microsoft/CardinalityEstimation/blob/master/LICENSE</licenseUrl>
         <projectUrl>https://github.com/Microsoft/CardinalityEstimation</projectUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
-        <description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al.</description>
+        <description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</description>
         <summary />
         <releaseNotes>Version 1.5: Expose BinaryReader/Writer in Serializer
 Version 1.4: Relax Merge to IEnumerable
@@ -20,7 +20,7 @@ Version 1.1: Added a Serializer class</releaseNotes>
         <copyright>Microsoft 2015, MIT License</copyright>
         <tags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</tags>
         <dependencies>
-            <dependency id="murmurhash" version="1.0.0" />
+            <dependency id="murmurhash-signed" version="1.0.0" />
         </dependencies>
         <frameworkAssemblies>
             <frameworkAssembly assemblyName="Microsoft.CSharp" targetFramework="" />
