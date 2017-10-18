@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
     <metadata>
         <id>CardinalityEstimation</id>
-        <version>1.5</version>
+        <version>1.6</version>
         <title>Hyperloglog Cardinality Estimation</title>
         <authors>Oron Navon</authors>
         <owners>Oron Navon</owners>
@@ -11,7 +11,8 @@
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
         <description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al.</description>
         <summary />
-        <releaseNotes>Version 1.5: Expose BinaryReader/Writer in Serializer
+        <releaseNotes>Version 1.6: Create signed version and fix deserialization bug
+Version 1.5: Expose BinaryReader/Writer in Serializer
 Version 1.4: Relax Merge to IEnumerable
 Version 1.3: Serializer allows keeping stream open
 Version 1.2.1: Fixed concurrency issue in Murmur3
