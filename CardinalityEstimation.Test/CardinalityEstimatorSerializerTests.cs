@@ -285,9 +285,29 @@ namespace CardinalityEstimation.Test
             Assert.AreEqual(5000UL, hllDense.CountAdditions);
         }
 
-        private CardinalityEstimator CreateAndFillCardinalityEstimator(int cardinality = 1000000)
+        [TestMethod]
+        public void TestSerializerMultipleCardinalityAndBitsCombinations()
         {
-            var hll = new CardinalityEstimator();
+            for (int bits = 4; bits <= 16; bits++)
+            {
+                for (int cardinality = 1; cardinality <= 1000; cardinality++)
+                {
+                    var estimator = CreateAndFillCardinalityEstimator(cardinality, bits);
+                    CardinalityEstimatorSerializer serializer = new CardinalityEstimatorSerializer();
+                    using (var stream = new MemoryStream())
+                    {
+                        serializer.Serialize(stream, estimator, true);
+                        stream.Seek(0, SeekOrigin.Begin);
+                        var deserializedEstimator = serializer.Deserialize(stream);
+                        Assert.AreEqual(estimator.Count(), deserializedEstimator.Count(), "Estimators should have same count before and after serialization");
+                    }
+                }
+            }
+        }
+
+        private CardinalityEstimator CreateAndFillCardinalityEstimator(int cardinality = 1000000, int bits = 14)
+        {
+            var hll = new CardinalityEstimator(bits);
 
             var nextMember = new byte[ElementSizeInBytes];
             for (var i = 0; i < cardinality; i++)
