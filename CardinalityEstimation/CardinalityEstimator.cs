@@ -139,6 +139,9 @@ namespace CardinalityEstimation
             // if DirectCount is not null, populate the HLL lookup with its elements.  This allows serialization to include only directCount
             if (this.directCount != null)
             {
+                // since we are re-initializing the object, we need to reset isSparse to true and sparse lookup
+                isSparse = true;
+                this.lookupSparse = new Dictionary<ushort, byte>();
                 foreach (ulong element in this.directCount)
                 {
                     AddElementHash(element);

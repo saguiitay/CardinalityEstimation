@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
     <metadata>
-        <id>CardinalityEstimation</id>
+        <id>CardinalityEstimation.Signed</id>
         <version>1.6</version>
         <title>Hyperloglog Cardinality Estimation</title>
         <authors>Oron Navon</authors>
@@ -9,7 +9,7 @@
         <licenseUrl>https://github.com/Microsoft/CardinalityEstimation/blob/master/LICENSE</licenseUrl>
         <projectUrl>https://github.com/Microsoft/CardinalityEstimation</projectUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
-        <description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al.</description>
+        <description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</description>
         <summary />
         <releaseNotes>Version 1.6: Create signed version and fix deserialization bug
 Version 1.5: Expose BinaryReader/Writer in Serializer
@@ -21,7 +21,7 @@ Version 1.1: Added a Serializer class</releaseNotes>
         <copyright>Microsoft 2015, MIT License</copyright>
         <tags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</tags>
         <dependencies>
-            <dependency id="murmurhash" version="1.0.0" />
+            <dependency id="murmurhash-signed" version="1.0.0" />
         </dependencies>
         <frameworkAssemblies>
             <frameworkAssembly assemblyName="Microsoft.CSharp" targetFramework="" />
@@ -35,6 +35,6 @@ Version 1.1: Added a Serializer class</releaseNotes>
         </frameworkAssemblies>
     </metadata>
     <files>
-        <file src="bin\Release\CardinalityEstimation.dll" target="lib\net45\CardinalityEstimation.dll" />
+        <file src="bin\Release-Signed\CardinalityEstimation.dll" target="lib\net45\CardinalityEstimation.dll" />
     </files>
 </package>
