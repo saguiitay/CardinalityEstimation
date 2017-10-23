@@ -35,6 +35,6 @@ Version 1.1: Added a Serializer class</releaseNotes>
         </frameworkAssemblies>
     </metadata>
     <files>
-        <file src="bin\Release\CardinalityEstimation.dll" target="lib\net45\CardinalityEstimation.dll" />
+        <file src="bin\Release-Signed\CardinalityEstimation.dll" target="lib\net45\CardinalityEstimation.dll" />
     </files>
 </package>
