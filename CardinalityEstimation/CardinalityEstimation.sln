@@ -23,7 +23,6 @@ Global
 		{B2F44B14-05AB-4CA8-8188-563CC8D94DEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B2F44B14-05AB-4CA8-8188-563CC8D94DEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2F44B14-05AB-4CA8-8188-563CC8D94DEC}.Release-Signed|Any CPU.ActiveCfg = Release|Any CPU
-		{B2F44B14-05AB-4CA8-8188-563CC8D94DEC}.Release-Signed|Any CPU.Build.0 = Release|Any CPU
 		{B2F44B14-05AB-4CA8-8188-563CC8D94DEC}.Release-Unsigned|Any CPU.ActiveCfg = Release|Any CPU
 		{B2F44B14-05AB-4CA8-8188-563CC8D94DEC}.Release-Unsigned|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
