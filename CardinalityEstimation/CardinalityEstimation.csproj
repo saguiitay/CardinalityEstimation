@@ -38,19 +38,29 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Release-Signed'">
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>cardinalityestimation.snk</AssemblyOriginatorKeyFile>
-  </PropertyGroup>
+  <Choose>
+	<When Condition="'$(Configuration)' == 'Release-Signed'">
+	  <ItemGroup>
+	    <Reference Include="MurmurHash, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+	      <HintPath>packages\murmurhash-signed.1.0.0\lib\net45\MurmurHash.dll</HintPath>
+	      <Private>True</Private>
+	    </Reference>
+	  </ItemGroup>
+      <PropertyGroup>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>cardinalityestimation.snk</AssemblyOriginatorKeyFile>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+	  <ItemGroup>
+	    <Reference Include="MurmurHash, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+	  	  <HintPath>packages\murmurhash.1.0.0\lib\net45\MurmurHash.dll</HintPath>
+		  <Private>True</Private>
+	    </Reference>
+	  </ItemGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup>
-    <Reference Condition="'$(Configuration)' == 'Release-Signed'" Include="MurmurHash, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\murmurhash-signed.1.0.0\lib\net45\MurmurHash.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Condition="'$(Configuration)' != 'Release-Signed'" Include="MurmurHash, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\murmurhash.1.0.0\lib\net45\MurmurHash.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Runtime.Serialization" />
