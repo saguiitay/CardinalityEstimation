@@ -34,62 +34,60 @@ namespace CardinalityEstimation.Test
 
     using CardinalityEstimation.Hash;
 
-    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Xunit;
 
-    [TestClass]
-    public class CardinalityEstimatorTests
+    
+    public class CardinalityEstimatorTests : IDisposable
     {
         private const int ElementSizeInBytes = 20;
         public static readonly Random Rand = new Random();
 
         private Stopwatch stopwatch;
 
-        [TestInitialize]
-        public void Init()
+        public CardinalityEstimatorTests()
         {
             this.stopwatch = new Stopwatch();
             this.stopwatch.Start();
         }
 
-        [TestCleanup]
-        public void Cleanup()
+        public void Dispose()
         {
             this.stopwatch.Stop();
             Console.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGetSigma()
         {
             // simulate a 64 bit hash and 14 bits for indexing
             const int bitsToCount = 64 - 14;
-            Assert.AreEqual(51, CardinalityEstimator.GetSigma(0, bitsToCount));
-            Assert.AreEqual(50, CardinalityEstimator.GetSigma(1, bitsToCount));
-            Assert.AreEqual(47, CardinalityEstimator.GetSigma(8, bitsToCount));
-            Assert.AreEqual(1, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount) - 1), bitsToCount));
-            Assert.AreEqual(51, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount + 1)), bitsToCount));
+            Assert.Equal(51, CardinalityEstimator.GetSigma(0, bitsToCount));
+            Assert.Equal(50, CardinalityEstimator.GetSigma(1, bitsToCount));
+            Assert.Equal(47, CardinalityEstimator.GetSigma(8, bitsToCount));
+            Assert.Equal(1, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount) - 1), bitsToCount));
+            Assert.Equal(51, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount + 1)), bitsToCount));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCountAdditions()
         {
             var estimator = new CardinalityEstimator();
 
-            Assert.AreEqual(0UL, estimator.CountAdditions);
+            Assert.Equal(0UL, estimator.CountAdditions);
 
             estimator.Add(0);
             estimator.Add(0);
 
-            Assert.AreEqual(2UL, estimator.CountAdditions);
+            Assert.Equal(2UL, estimator.CountAdditions);
 
             var estimator2 = new CardinalityEstimator();
             estimator2.Add(0);
             estimator.Merge(estimator2);
 
-            Assert.AreEqual(3UL, estimator.CountAdditions);
+            Assert.Equal(3UL, estimator.CountAdditions);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestDifferentAccuracies()
         {
             const double stdError4Bits = 0.26;
@@ -105,7 +103,7 @@ namespace CardinalityEstimation.Test
             RunTest(stdError16Bits, 1000000);
         }
 
-        [TestMethod]
+        [Fact]
         public void AccuracyIsPerfectUnder100Members()
         {
             for (var i = 1; i < 100; i++)
@@ -115,7 +113,7 @@ namespace CardinalityEstimation.Test
         }
 
 
-        [TestMethod]
+        [Fact]
         public void TestAccuracySmallCardinality()
         {
             for (var i = 1; i < 10000; i = i*2)
@@ -126,7 +124,7 @@ namespace CardinalityEstimation.Test
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void TestMergeCardinalityUnder100()
         {
             const double stdError = 0.008125;
@@ -134,7 +132,7 @@ namespace CardinalityEstimation.Test
             RunTest(stdError, cardinality, numHllInstances: 60, maxAcceptedError: 0);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestMergeLargeCardinality()
         {
             const double stdError = 0.008125;
@@ -142,7 +140,7 @@ namespace CardinalityEstimation.Test
             RunTest(stdError, cardinality, numHllInstances: 60);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestRecreationFromData()
         {
             RunRecreationFromData(10);
@@ -153,7 +151,7 @@ namespace CardinalityEstimation.Test
             RunRecreationFromData(1000000);
         }
 
-        [TestMethod]
+        [Fact]
         public void StaticMergeTest()
         {
             const int expectedBitsPerIndex = 11;
@@ -166,34 +164,34 @@ namespace CardinalityEstimation.Test
 
             CardinalityEstimator merged = CardinalityEstimator.Merge(estimators);
 
-            Assert.AreEqual(10UL, merged.Count());
-            Assert.AreEqual(expectedBitsPerIndex, merged.GetState().BitsPerIndex);
+            Assert.Equal(10UL, merged.Count());
+            Assert.Equal(expectedBitsPerIndex, merged.GetState().BitsPerIndex);
         }
 
-        [TestMethod]
+        [Fact]
         public void StaticMergeHandlesNullParameter()
         {
             CardinalityEstimator result = CardinalityEstimator.Merge(null as IEnumerable<CardinalityEstimator>);
-            Assert.IsNull(result);
+            Assert.Null(result);
         }
 
-        [TestMethod]
+        [Fact]
         public void StaticMergeHandlesNullElements()
         {
             const int expectedBitsPerIndex = 11;
             var estimators = new List<CardinalityEstimator> { null, new CardinalityEstimator(expectedBitsPerIndex, HashFunctionId.Fnv1A), null };
             CardinalityEstimator result = CardinalityEstimator.Merge(estimators);
-            Assert.IsNotNull(result);
-            Assert.AreEqual(expectedBitsPerIndex, result.GetState().BitsPerIndex);
+            Assert.NotNull(result);
+            Assert.Equal(expectedBitsPerIndex, result.GetState().BitsPerIndex);
         }
 
-        [TestMethod]
+        [Fact]
         public void EstimatorWorksAfterDeserialization()
         {
             ICardinalityEstimator<int> original = new CardinalityEstimator();
             original.Add(5);
             original.Add(7);
-            Assert.AreEqual(2UL, original.Count());
+            Assert.Equal(2UL, original.Count());
 
             var binaryFormatter = new BinaryFormatter();
             using (var memoryStream = new MemoryStream())
@@ -202,10 +200,10 @@ namespace CardinalityEstimation.Test
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 CardinalityEstimator copy = (CardinalityEstimator) binaryFormatter.Deserialize(memoryStream);
 
-                Assert.AreEqual(2UL, copy.Count());
+                Assert.Equal(2UL, copy.Count());
                 copy.Add(5);
                 copy.Add(7);
-                Assert.AreEqual(2UL, copy.Count());
+                Assert.Equal(2UL, copy.Count());
             }
         }
 
@@ -225,32 +223,30 @@ namespace CardinalityEstimation.Test
             var hll2 = new CardinalityEstimator(data);
             CardinalityEstimatorState data2 = hll2.GetState();
 
-            Assert.AreEqual(data.BitsPerIndex, data2.BitsPerIndex);
-            Assert.AreEqual(data.IsSparse, data2.IsSparse);
+            Assert.Equal(data.BitsPerIndex, data2.BitsPerIndex);
+            Assert.Equal(data.IsSparse, data2.IsSparse);
 
-            Assert.IsTrue((data.DirectCount != null && data2.DirectCount != null) || (data.DirectCount == null && data2.DirectCount == null));
-            Assert.IsTrue((data.LookupSparse != null && data2.LookupSparse != null) ||
+            Assert.True((data.DirectCount != null && data2.DirectCount != null) || (data.DirectCount == null && data2.DirectCount == null));
+            Assert.True((data.LookupSparse != null && data2.LookupSparse != null) ||
                           (data.LookupSparse == null && data2.LookupSparse == null));
-            Assert.IsTrue((data.LookupDense != null && data2.LookupDense != null) || (data.LookupDense == null && data2.LookupDense == null));
+            Assert.True((data.LookupDense != null && data2.LookupDense != null) || (data.LookupDense == null && data2.LookupDense == null));
 
             if (data.DirectCount != null)
             {
                 // DirectCount are subsets of each-other => they are the same set
-                Assert.IsTrue(data.DirectCount.IsSubsetOf(data2.DirectCount) && data2.DirectCount.IsSubsetOf(data.DirectCount));
+                Assert.True(data.DirectCount.IsSubsetOf(data2.DirectCount) && data2.DirectCount.IsSubsetOf(data.DirectCount));
             }
             if (data.LookupSparse != null)
             {
-                Assert.IsTrue(data.LookupSparse.DictionaryEqual(data2.LookupSparse));
+                Assert.True(data.LookupSparse.DictionaryEqual(data2.LookupSparse));
             }
             if (data.LookupDense != null)
             {
-                Assert.IsTrue(data.LookupDense.SequenceEqual(data2.LookupDense));
+                Assert.True(data.LookupDense.SequenceEqual(data2.LookupDense));
             }
         }
 
-        [TestMethod]
-        [Timeout(90*60*1000)] // 90 minutes
-        [Ignore] // Test runtime is long
+        [Fact(Skip = "runtime is long")]
         public void TestPast32BitLimit()
         {
             const double stdError = 0.008125;
@@ -258,8 +254,7 @@ namespace CardinalityEstimation.Test
             RunTest(stdError, cardinality);
         }
 
-        [TestMethod]
-        [Ignore] // Test runtime is long
+        [Fact(Skip = "runtime is long")]
         public void TestAccuracyLargeCardinality()
         {
             for (var i = 10007; i < 10000000; i *= 2)
@@ -272,8 +267,7 @@ namespace CardinalityEstimation.Test
             RunTest(0.008125, 100000000);
         }
 
-        [TestMethod]
-        [Ignore] // Test runtime is long
+        [Fact(Skip = "runtime is long")]
         public void TestSequentialAccuracy()
         {
             for (var i = 10007; i < 10000000; i *= 2)
@@ -286,8 +280,7 @@ namespace CardinalityEstimation.Test
             RunTest(0.008125, 100000000);
         }
 
-        [TestMethod]
-        [Ignore] // Test runtime is long
+        [Fact(Skip = "runtime is long")]
         public void ReportAccuracy()
         {
             var hll = new CardinalityEstimator();
@@ -313,7 +306,7 @@ namespace CardinalityEstimation.Test
             Console.WriteLine("Worst: {0}", worstMember);
             Console.WriteLine("Max error: {0}", maxError);
 
-            Assert.IsTrue(true);
+            Assert.True(true);
         }
 
         /// <summary>
@@ -368,7 +361,7 @@ namespace CardinalityEstimation.Test
 
             double obsError = Math.Abs(mergedHll.Count()/(double) (expectedCount) - 1.0);
             Console.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
-            Assert.IsTrue(obsError <= maxAcceptedError, string.Format("Observed error was over {0}", maxAcceptedError));
+            Assert.True(obsError <= maxAcceptedError, string.Format("Observed error was over {0}", maxAcceptedError));
             Console.WriteLine();
         }
 

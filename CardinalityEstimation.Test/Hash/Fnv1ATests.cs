@@ -26,32 +26,31 @@
 namespace CardinalityEstimation.Test.Hash
 {
     using CardinalityEstimation.Hash;
-    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Xunit;
 
-    [TestClass]
+    
     public class Fnv1ATests
     {
         private Fnv1A sut;
 
-        [TestInitialize]
-        public void Setup()
+        public Fnv1ATests()
         {
             this.sut = new Fnv1A();
         }
 
-        [TestMethod]
+        [Fact]
         public void Fnv1AProducesRightValues()
         {
             // Check some precomputed values of FNV1A
-            Assert.AreEqual(14695981039346656037, this.sut.GetHashCode(new byte[0]));
-            Assert.AreEqual(1109817072422714760UL, this.sut.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
-            Assert.AreEqual(11047178588169845073UL, this.sut.GetHashCode(new byte[] { 255, 255, 255, 255 }));
+            Assert.Equal(14695981039346656037, this.sut.GetHashCode(new byte[0]));
+            Assert.Equal(1109817072422714760UL, this.sut.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
+            Assert.Equal(11047178588169845073UL, this.sut.GetHashCode(new byte[] { 255, 255, 255, 255 }));
         }
 
-        [TestMethod]
+        [Fact]
         public void Fnv1AHasRightId()
         {
-            Assert.AreEqual(0, (byte)this.sut.HashFunctionId, "When serialized to a byte, FNV-1A's ID should be 0");
+            Assert.True((byte)this.sut.HashFunctionId == 0, "When serialized to a byte, FNV-1A's ID should be 0");
         }
     }
 }
