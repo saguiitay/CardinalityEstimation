@@ -25,58 +25,57 @@
 
 namespace CardinalityEstimation.Test
 {
-    using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-    [TestClass]
+    using Xunit;
+    
     public class BiasCorrectionTests
     {
-        [TestMethod]
+        [Fact]
         public void WhenRawEstimateIsInArrayCorrectBiasIsUsed()
         {
             double corrected = BiasCorrection.CorrectBias(12.207, 4);
-            Assert.AreEqual(12.207 - 9.207, corrected);
+            Assert.Equal(12.207 - 9.207, corrected);
         }
 
-        [TestMethod]
+        [Fact]
         public void WhenRawEstimateIsBetweenArrayValuesCorrectBiasIsUsed()
         {
             double corrected = BiasCorrection.CorrectBias(11.1, 4);
             // The bias should be between 10 and 9.717, but much closer to 10
-            Assert.AreEqual(1.1394700139470011, corrected);
+            Assert.Equal(1.1394700139470011, corrected);
         }
 
-        [TestMethod]
+        [Fact]
         public void WhenRawEstimateIsLargerThanAllArrayValuesCorrectBiasIsUsed()
         {
             // The bias of the last array element should be used
             double corrected = BiasCorrection.CorrectBias(78.0, 4);
-            Assert.AreEqual(78.0 - -1.7606, corrected);
+            Assert.Equal(78.0 - -1.7606, corrected);
         }
 
-        [TestMethod]
+        [Fact]
         public void WhenRawEstimateIsSmallerThanAllArrayValuesCorrectBiasIsUsed()
         {
             // The bias of the first array element should be used
             double corrected = BiasCorrection.CorrectBias(10.5, 4);
-            Assert.AreEqual(10.5 - 10, corrected);
+            Assert.Equal(10.5 - 10, corrected);
         }
 
-        [TestMethod]
+        [Fact]
         public void WhenCorrectedEstimateIsBelowZeroZeroIsReturned()
         {
             double corrected = BiasCorrection.CorrectBias(5, 4);
-            Assert.AreEqual(0, corrected);
+            Assert.Equal(0, corrected);
         }
 
-        [TestMethod]
+        [Fact]
         public void RawEstimateArraysAndBiasDataArraysHaveSameLengths()
         {
-            Assert.IsTrue(BiasCorrection.RawEstimate.Length >= 14);
-            Assert.AreEqual(BiasCorrection.RawEstimate.Length, BiasCorrection.BiasData.Length);
+            Assert.True(BiasCorrection.RawEstimate.Length >= 14);
+            Assert.Equal(BiasCorrection.RawEstimate.Length, BiasCorrection.BiasData.Length);
 
             for (var bits = 0; bits < BiasCorrection.RawEstimate.Length; bits++)
             {
-                Assert.AreEqual(BiasCorrection.RawEstimate[bits].Length, BiasCorrection.BiasData[bits].Length);
+                Assert.Equal(BiasCorrection.RawEstimate[bits].Length, BiasCorrection.BiasData[bits].Length);
             }
         }
     }

@@ -32,31 +32,29 @@ namespace CardinalityEstimation.Test
     using System.Linq;
     using System.Runtime.Serialization.Formatters.Binary;
     using CardinalityEstimation.Hash;
-    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Xunit;
 
-    [TestClass]
-    public class CardinalityEstimatorSerializerTests
+    
+    public class CardinalityEstimatorSerializerTests : IDisposable
     {
         private const int ElementSizeInBytes = 20;
         public static readonly Random Rand = new Random();
 
         private Stopwatch stopwatch;
 
-        [TestInitialize]
-        public void Init()
+        public CardinalityEstimatorSerializerTests()
         {
             this.stopwatch = new Stopwatch();
             this.stopwatch.Start();
         }
 
-        [TestCleanup]
-        public void Cleanup()
+        public void Dispose()
         {
             this.stopwatch.Stop();
             Console.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSerializerCardinality10()
         {
             CardinalityEstimator hll = CreateAndFillCardinalityEstimator(10);
@@ -79,16 +77,16 @@ namespace CardinalityEstimation.Test
             // 4 bytes for the number of elements in DirectCount
             // 8 bytes for each element (ulong) in DirectCount
             // 8 bytes for CountAdded
-            Assert.AreEqual(102, results.Length);
+            Assert.Equal(102, results.Length);
 
-            Assert.AreEqual((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(3, results[9]); // IsSparse = true AND IsDirectCount = true
-            Assert.AreEqual(10, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0)); // Count = 10
-            Assert.AreEqual(10UL, BitConverter.ToUInt64(results.Skip(94).Take(8).ToArray(), 0)); // CountAdditions = 10
+            Assert.Equal((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
+            Assert.Equal(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.Equal(3, results[9]); // IsSparse = true AND IsDirectCount = true
+            Assert.Equal(10, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0)); // Count = 10
+            Assert.Equal(10UL, BitConverter.ToUInt64(results.Skip(94).Take(8).ToArray(), 0)); // CountAdditions = 10
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSerializerCardinality1000()
         {
             CardinalityEstimator hll = CreateAndFillCardinalityEstimator(1000);
@@ -113,50 +111,50 @@ namespace CardinalityEstimation.Test
             // 4 bytes for the number of elements in lookupSparse
             // 2+1 bytes for each element (ulong) in lookupSparse
             // 8 bytes for CountAdded
-            Assert.AreEqual(22 + 3*data.LookupSparse.Count, results.Length);
+            Assert.Equal(22 + 3*data.LookupSparse.Count, results.Length);
 
-            Assert.AreEqual((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(2, results[9]); // IsSparse = true AND IsDirectCount = false
-            Assert.AreEqual(data.LookupSparse.Count, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
-            Assert.AreEqual(1000UL, BitConverter.ToUInt64(results.Skip(14 + 3*data.LookupSparse.Count).Take(8).ToArray(), 0)); // CountAdditions = 1000
+            Assert.Equal((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
+            Assert.Equal(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.Equal(2, results[9]); // IsSparse = true AND IsDirectCount = false
+            Assert.Equal(data.LookupSparse.Count, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
+            Assert.Equal(1000UL, BitConverter.ToUInt64(results.Skip(14 + 3*data.LookupSparse.Count).Take(8).ToArray(), 0)); // CountAdditions = 1000
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSerializerCardinality100000()
         {
-            TestSerializerCardinality100000(false);
+            TestSerializerCardinality100000Parameterized(false);
         }
 
 
-        [TestMethod]
+        [Fact]
         public void TestSerializer()
         {
             for (var i = 0; i < 100; i++)
             {
                 TestSerializerCardinality10();
                 TestSerializerCardinality1000();
-                TestSerializerCardinality100000(false);
-                TestSerializerCardinality100000(true);
+                TestSerializerCardinality100000Parameterized(false);
+                TestSerializerCardinality100000Parameterized(true);
             }
         }
 
-        [TestMethod]
-        public void TestDeserializer()
+        [Fact]
+        public void TestDeserializer2()
         {
             for (var i = 0; i < 100; i++)
             {
-                TestDeserializer(10);
-                TestDeserializer(1000);
-                TestDeserializer(100000);
+                TestDeserializerWithCardinality(10);
+                TestDeserializerWithCardinality(1000);
+                TestDeserializerWithCardinality(100000);
 
-                TestDeserializer2(10);
-                TestDeserializer2(1000);
-                TestDeserializer2(100000);
+                TestDeserializer2WithCardinality(10);
+                TestDeserializer2WithCardinality(1000);
+                TestDeserializer2WithCardinality(100000);
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSerializerSizes()
         {
             for (var cardinality = 1; cardinality < 10240; cardinality *= 2)
@@ -184,7 +182,7 @@ namespace CardinalityEstimation.Test
         ///     If this method fails, it's possible that the serialization format has changed and
         ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void SerializerCanDeserializeVersion1Point0()
         {
             var serializer = new CardinalityEstimatorSerializer();
@@ -193,12 +191,12 @@ namespace CardinalityEstimation.Test
             CardinalityEstimator hllSparse = serializer.Deserialize(new MemoryStream(Resources.serializedSparse_v1_0));
             CardinalityEstimator hllDense = serializer.Deserialize(new MemoryStream(Resources.serializedDense_v1_0));
 
-            Assert.AreEqual(50UL, hllDirect.Count());
-            Assert.AreEqual(151UL, hllSparse.Count());
-            Assert.AreEqual(5005UL, hllDense.Count());
+            Assert.Equal(50UL, hllDirect.Count());
+            Assert.Equal(151UL, hllSparse.Count());
+            Assert.Equal(5005UL, hllDense.Count());
         }
 
-        [TestMethod]
+        [Fact]
         public void DeserializedEstimatorUsesSameHashAsOriginal()
         {
             // Prepare some elements
@@ -240,7 +238,7 @@ namespace CardinalityEstimation.Test
                     deserialized.Add(element);
                 }
 
-                Assert.AreEqual(original.Count(), deserialized.Count());
+                Assert.Equal(original.Count(), deserialized.Count());
             }
         }
 
@@ -248,7 +246,7 @@ namespace CardinalityEstimation.Test
         ///     If this method fails, it's possible that the serialization format has changed and
         ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void SerializerCanDeserializeVersion2Point0()
         {
             var serializer = new CardinalityEstimatorSerializer();
@@ -257,16 +255,16 @@ namespace CardinalityEstimation.Test
             CardinalityEstimator hllSparse = serializer.Deserialize(new MemoryStream(Resources.serializedSparse_v2_0));
             CardinalityEstimator hllDense = serializer.Deserialize(new MemoryStream(Resources.serializedDense_v2_0));
 
-            Assert.AreEqual(50UL, hllDirect.Count());
-            Assert.AreEqual(151UL, hllSparse.Count());
-            Assert.AreEqual(5009UL, hllDense.Count());
+            Assert.Equal(50UL, hllDirect.Count());
+            Assert.Equal(151UL, hllSparse.Count());
+            Assert.Equal(5009UL, hllDense.Count());
         }
 
         /// <summary>
         ///     If this method fails, it's possible that the serialization format has changed and
         ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void SerializerCanDeserializeVersion2Point1()
         {
             var serializer = new CardinalityEstimatorSerializer();
@@ -275,17 +273,17 @@ namespace CardinalityEstimation.Test
             CardinalityEstimator hllSparse = serializer.Deserialize(new MemoryStream(Resources.serializedSparse_v2_1));
             CardinalityEstimator hllDense = serializer.Deserialize(new MemoryStream(Resources.serializedDense_v2_1));
 
-            Assert.AreEqual(50UL, hllDirect.Count());
-            Assert.AreEqual(50UL, hllDirect.CountAdditions);
+            Assert.Equal(50UL, hllDirect.Count());
+            Assert.Equal(50UL, hllDirect.CountAdditions);
 
-            Assert.AreEqual(151UL, hllSparse.Count());
-            Assert.AreEqual(150UL, hllSparse.CountAdditions);
+            Assert.Equal(151UL, hllSparse.Count());
+            Assert.Equal(150UL, hllSparse.CountAdditions);
 
-            Assert.AreEqual(5009UL, hllDense.Count());
-            Assert.AreEqual(5000UL, hllDense.CountAdditions);
+            Assert.Equal(5009UL, hllDense.Count());
+            Assert.Equal(5000UL, hllDense.CountAdditions);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSerializerMultipleCardinalityAndBitsCombinations()
         {
             for (int bits = 4; bits <= 16; bits++)
@@ -299,7 +297,7 @@ namespace CardinalityEstimation.Test
                         serializer.Serialize(stream, estimator, true);
                         stream.Seek(0, SeekOrigin.Begin);
                         var deserializedEstimator = serializer.Deserialize(stream);
-                        Assert.AreEqual(estimator.Count(), deserializedEstimator.Count(), "Estimators should have same count before and after serialization");
+                        Assert.True(deserializedEstimator.Count() == estimator.Count(), "Estimators should have same count before and after serialization");
                     }
                 }
             }
@@ -343,10 +341,10 @@ namespace CardinalityEstimation.Test
                 defaultSize = defaultSerializerResults.Length;
             }
 
-            Assert.IsTrue(customSerializerResults.Length <= defaultSerializerResults.Length);
+            Assert.True(customSerializerResults.Length <= defaultSerializerResults.Length);
         }
 
-        private void TestDeserializer(int cardinality)
+        private void TestDeserializerWithCardinality(int cardinality)
         {
             CardinalityEstimator hll = CreateAndFillCardinalityEstimator(cardinality);
             CardinalityEstimator hll2;
@@ -369,7 +367,7 @@ namespace CardinalityEstimation.Test
             CompareHLL(hll, hll2);
         }
 
-        private void TestDeserializer2(int cardinality)
+        private void TestDeserializer2WithCardinality(int cardinality)
         {
             CardinalityEstimator hll = CreateAndFillCardinalityEstimator(cardinality);
             CardinalityEstimator hll2;
@@ -398,7 +396,7 @@ namespace CardinalityEstimation.Test
             CompareHLL(hll, hll2);
         }
 
-        private void TestSerializerCardinality100000(bool useBinWriter)
+        private void TestSerializerCardinality100000Parameterized(bool useBinWriter)
         {
             CardinalityEstimator hll = CreateAndFillCardinalityEstimator(100000);
 
@@ -432,13 +430,13 @@ namespace CardinalityEstimation.Test
             // 4 bytes for the number of elements in lookupDense
             // 1 bytes for each element (ulong) in lookupDense
             // 8 bytes for CountAdded
-            Assert.AreEqual(22 + data.LookupDense.Length, results.Length);
+            Assert.Equal(22 + data.LookupDense.Length, results.Length);
 
-            Assert.AreEqual((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
-            Assert.AreEqual(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
-            Assert.AreEqual(0, results[9]); // IsSparse = false AND IsDirectCount = false
-            Assert.AreEqual(data.LookupDense.Length, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
-            Assert.AreEqual(100000UL, BitConverter.ToUInt64(results.Skip(14 + data.LookupDense.Length).Take(8).ToArray(), 0)); // CountAdditions = 100000
+            Assert.Equal((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
+            Assert.Equal(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
+            Assert.Equal(0, results[9]); // IsSparse = false AND IsDirectCount = false
+            Assert.Equal(data.LookupDense.Length, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
+            Assert.Equal(100000UL, BitConverter.ToUInt64(results.Skip(14 + data.LookupDense.Length).Take(8).ToArray(), 0)); // CountAdditions = 100000
         }
 
         private void CompareHLL(CardinalityEstimator hll1, CardinalityEstimator hll2)
@@ -446,26 +444,26 @@ namespace CardinalityEstimation.Test
             CardinalityEstimatorState data = hll1.GetState();
             CardinalityEstimatorState data2 = hll2.GetState();
 
-            Assert.AreEqual(data.BitsPerIndex, data2.BitsPerIndex);
-            Assert.AreEqual(data.IsSparse, data2.IsSparse);
+            Assert.Equal(data.BitsPerIndex, data2.BitsPerIndex);
+            Assert.Equal(data.IsSparse, data2.IsSparse);
 
-            Assert.IsTrue((data.DirectCount != null && data2.DirectCount != null) || (data.DirectCount == null && data2.DirectCount == null));
-            Assert.IsTrue((data.LookupSparse != null && data2.LookupSparse != null) ||
+            Assert.True((data.DirectCount != null && data2.DirectCount != null) || (data.DirectCount == null && data2.DirectCount == null));
+            Assert.True((data.LookupSparse != null && data2.LookupSparse != null) ||
                           (data.LookupSparse == null && data2.LookupSparse == null));
-            Assert.IsTrue((data.LookupDense != null && data2.LookupDense != null) || (data.LookupDense == null && data2.LookupDense == null));
+            Assert.True((data.LookupDense != null && data2.LookupDense != null) || (data.LookupDense == null && data2.LookupDense == null));
 
             if (data.DirectCount != null)
             {
                 // DirectCount are subsets of each-other => they are the same set
-                Assert.IsTrue(data.DirectCount.IsSubsetOf(data2.DirectCount) && data2.DirectCount.IsSubsetOf(data.DirectCount));
+                Assert.True(data.DirectCount.IsSubsetOf(data2.DirectCount) && data2.DirectCount.IsSubsetOf(data.DirectCount));
             }
             if (data.LookupSparse != null)
             {
-                Assert.IsTrue(data.LookupSparse.DictionaryEqual(data2.LookupSparse));
+                Assert.True(data.LookupSparse.DictionaryEqual(data2.LookupSparse));
             }
             if (data.LookupDense != null)
             {
-                Assert.IsTrue(data.LookupDense.SequenceEqual(data2.LookupDense));
+                Assert.True(data.LookupDense.SequenceEqual(data2.LookupDense));
             }
         }
     }

@@ -29,23 +29,23 @@ namespace CardinalityEstimation.Test.Hash
     using System.Collections.Generic;
     using System.Linq;
     using CardinalityEstimation.Hash;
-    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using Xunit;
 
-    [TestClass]
+    
     public class HashFunctionFactoryTests
     {
-        [TestMethod]
+        [Fact]
         public void FactoryCanProduceAllHashFunctionTypes()
         {
             // Make sure factory can produce each HashFunctionId
             foreach (HashFunctionId hashFunctionId in Enum.GetValues(typeof (HashFunctionId)))
             {
                 IHashFunction hashFunction = HashFunctionFactory.GetHashFunction(hashFunctionId);
-                Assert.IsNotNull(hashFunction, "Factory created a null hash function with ID {0}", hashFunctionId);
+                Assert.True(hashFunction != null, "Factory created a null hash function with ID" + hashFunctionId);
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void EachImplmentationHasUniqueId()
         {
             Array hashFunctionIds = Enum.GetValues(typeof (HashFunctionId));
@@ -53,7 +53,7 @@ namespace CardinalityEstimation.Test.Hash
             int hashFunctionTypesCount =
                 typeof (IHashFunction).Assembly.GetTypes().Count(t => typeof (IHashFunction).IsAssignableFrom(t) && t.IsClass);
 
-            Assert.AreEqual(hashFunctionIds.Length, hashFunctionTypesCount,
+            Assert.True(hashFunctionIds.Length == hashFunctionTypesCount,
                 "Number of IHashFunction implementations must match number of HashFunctionIds");
 
             // Make sure the IDs are unique
@@ -63,7 +63,7 @@ namespace CardinalityEstimation.Test.Hash
                 IHashFunction hashFunction = HashFunctionFactory.GetHashFunction(hashFunctionId);
                 if (knownIds.Contains(hashFunction.HashFunctionId))
                 {
-                    Assert.Fail("Hash function ID {0} has more than one implementation!", hashFunction.HashFunctionId);
+                    Assert.True(false, "Hash function ID " + hashFunction.HashFunctionId + " has more than one implementation!");
                 }
                 knownIds.Add(hashFunction.HashFunctionId);
             }
