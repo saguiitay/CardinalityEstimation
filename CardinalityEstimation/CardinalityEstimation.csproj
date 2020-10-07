@@ -1,27 +1,36 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netcoreapp3.0</TargetFrameworks>
     <Configurations>Debug;Release;Release-Signed;Release-Unsigned</Configurations>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
     <PackageId Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
-    <Version>1.7</Version>
+    <Version>1.8</Version>
     <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
-    <Authors>Oron Navon</Authors>
-    <Company>Oron Navon</Company>
+    <Authors>Oron Navon;Sagui Itay</Authors>
+    <Company></Company>
     <PackageLicenseUrl>https://github.com/Microsoft/CardinalityEstimation/blob/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/Microsoft/CardinalityEstimation</PackageProjectUrl>
     <Copyright>Microsoft 2015, MIT License</Copyright>
     <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
     <PackageReleaseNotes>Version 1.7: .NET Standard conversion
+
 Version 1.6: Create signed version and fix deserialization bug
+
 Version 1.5: Expose BinaryReader/Writer in Serializer
+
 Version 1.4: Relax Merge to IEnumerable
+
 Version 1.3: Serializer allows keeping stream open
+
 Version 1.2.1: Fixed concurrency issue in Murmur3
+
 Version 1.2: Switch to Murmur3 hash for improved accuracy; added CountAdditions
+
 Version 1.1: Added a Serializer class</PackageReleaseNotes>
+    <AssemblyVersion>1.8.0.0</AssemblyVersion>
+    <FileVersion>1.8.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
