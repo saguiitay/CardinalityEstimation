@@ -309,6 +309,37 @@ namespace CardinalityEstimation.Test
             Assert.True(true);
         }
 
+        [Fact()]
+        public void DirectCountingIsResetWhenMergingAlmostFullEstimators()
+        {
+            var addedEstimator = new CardinalityEstimator();
+            var mergedEstimator = new CardinalityEstimator();
+
+            for (int i = 0; i < 10_000; i++)
+            {
+                var guid = Guid.NewGuid().ToString();
+
+                addedEstimator.Add(guid);
+
+                // Simulate some intermediate estimators being merged together
+                var temporaryEstimator = new CardinalityEstimator();
+                temporaryEstimator.Add(guid);
+                mergedEstimator.Merge(temporaryEstimator);
+            }
+
+            var serializer = new CardinalityEstimatorSerializer();
+
+            var stream1 = new MemoryStream();
+            serializer.Serialize(stream1, addedEstimator, true);
+
+            var stream2 = new MemoryStream();
+            serializer.Serialize(stream2, mergedEstimator, true);
+
+            Assert.Equal(stream1.Length, stream2.Length);
+        }
+
+
+
         /// <summary>
         ///     Generates <paramref name="expectedCount" /> random (or sequential) elements and adds them to CardinalityEstimators, then asserts that
         ///     the observed error rate is no more than <paramref name="maxAcceptedError" />
