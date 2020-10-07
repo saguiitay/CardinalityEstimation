@@ -25,7 +25,7 @@ Fix merging bug.</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">
-    <PackageReference Include="murmurhash" Version="1.0.2" />
+    <PackageReference Include="murmurhash" Version="1.0.3" />
   </ItemGroup>
 
 </Project>
