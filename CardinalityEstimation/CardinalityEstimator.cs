@@ -102,7 +102,11 @@ namespace CardinalityEstimation
         ///     error or less
         /// </param>
         /// <param name="hashFunctionId">Type of hash function to use. Default is Murmur3, and FNV-1a is provided for legacy support</param>
-        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3) : this(CreateEmptyState(b, hashFunctionId)) {}
+        /// <param name="useDirectCounting">
+        ///     True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
+        ///     False if direct count should be avoided and use always estimation, even for low cardinalities.
+        /// </param>
+        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) : this(CreateEmptyState(b, hashFunctionId, useDirectCounting)) {}
 
         /// <summary>
         ///     Creates a CardinalityEstimator with the given <paramref name="state" />
@@ -401,7 +405,11 @@ namespace CardinalityEstimation
         /// </summary>
         /// <param name="b"><see cref="CardinalityEstimator(int, HashFunctionId)" /></param>
         /// <param name="hashFunctionId"><see cref="CardinalityEstimator(int, HashFunctionId)" /></param>
-        private static CardinalityEstimatorState CreateEmptyState(int b, HashFunctionId hashFunctionId)
+        /// <param name="useDirectCount">
+        ///     True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
+        ///     False if direct count should be avoided and use always estimation, even for low cardinalities.
+        /// </param>
+        private static CardinalityEstimatorState CreateEmptyState(int b, HashFunctionId hashFunctionId, bool useDirectCount)
         {
             if (b < 4 || b > 16)
             {
@@ -411,7 +419,7 @@ namespace CardinalityEstimation
             return new CardinalityEstimatorState
             {
                 BitsPerIndex = b,
-                DirectCount = new HashSet<ulong>(),
+                DirectCount = useDirectCount ? new HashSet<ulong>() : null,
                 IsSparse = true,
                 LookupSparse = new Dictionary<ushort, byte>(),
                 LookupDense = null,
