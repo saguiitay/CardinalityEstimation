@@ -1,4 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
 
 // Used to enable access to internal classes
-[assembly: InternalsVisibleTo("CardinalityEstimation.Test")]
+[assembly: InternalsVisibleTo("CardinalityEstimation.Test, PublicKey=002400000480000094000000060200000024000052534131000400000100010081f7aadc0bf7501dedd2471fdad4b71350a761acc01141226ebef71bac6d5f077da23411616de38106126f31b1281ea7089f9269b3dd4107f92a26b623c982115c4131ce44f80b420bbf8df003be7e389902b82ac8ebc65d4b553307a4c826fc5b09308c5dcfa989bf86a1fc31621175657c8494819b630b91960e86d14837ba")]

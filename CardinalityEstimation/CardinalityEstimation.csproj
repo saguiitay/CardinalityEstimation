@@ -6,7 +6,7 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
     <PackageId Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
-    <Version>1.8</Version>
+    <Version>1.9</Version>
     <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
     <Authors>Oron Navon;Sagui Itay</Authors>
     <Company></Company>
@@ -14,14 +14,18 @@
     <PackageProjectUrl>https://github.com/Microsoft/CardinalityEstimation</PackageProjectUrl>
     <Copyright>Microsoft 2015, MIT License</Copyright>
     <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
-    <PackageReleaseNotes>.NET Core support
-Fix merging bug.</PackageReleaseNotes>
-    <AssemblyVersion>1.8.0.0</AssemblyVersion>
-    <FileVersion>1.8.0.0</FileVersion>
+    <PackageReleaseNotes>Align all versions (.Net Core/Standard, signed/unsigned)</PackageReleaseNotes>
+    <AssemblyVersion>1.9.0.0</AssemblyVersion>
+    <FileVersion>1.9.0.0</FileVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
+    <AssemblyOriginatorKeyFile>cardinalityestimation.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
-    <PackageReference Include="murmurhash-signed" Version="1.0.2" />
+    <PackageReference Include="murmurhash-signed" Version="1.0.3" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">
