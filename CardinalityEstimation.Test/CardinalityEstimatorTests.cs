@@ -35,17 +35,19 @@ namespace CardinalityEstimation.Test
     using CardinalityEstimation.Hash;
 
     using Xunit;
-
+    using Xunit.Abstractions;
     
     public class CardinalityEstimatorTests : IDisposable
     {
         private const int ElementSizeInBytes = 20;
         public static readonly Random Rand = new Random();
 
-        private Stopwatch stopwatch;
+        private readonly ITestOutputHelper output;
+        private readonly Stopwatch stopwatch;
 
-        public CardinalityEstimatorTests()
+        public CardinalityEstimatorTests(ITestOutputHelper outputHelper)
         {
+            this.output = outputHelper;
             this.stopwatch = new Stopwatch();
             this.stopwatch.Start();
         }
@@ -53,7 +55,7 @@ namespace CardinalityEstimation.Test
         public void Dispose()
         {
             this.stopwatch.Stop();
-            Console.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
+            this.output.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
         }
 
         [Fact]
@@ -303,8 +305,8 @@ namespace CardinalityEstimation.Test
                 }
             }
 
-            Console.WriteLine("Worst: {0}", worstMember);
-            Console.WriteLine("Max error: {0}", maxError);
+            this.output.WriteLine("Worst: {0}", worstMember);
+            this.output.WriteLine("Max error: {0}", maxError);
 
             Assert.True(true);
         }
@@ -383,17 +385,17 @@ namespace CardinalityEstimation.Test
             }
 
             runStopwatch.Stop();
-            ReportMemoryCost(gcMemoryAtStart); // done here so references can't be GC'ed yet
+            ReportMemoryCost(gcMemoryAtStart, this.output); // done here so references can't be GC'ed yet
 
             // Merge
             CardinalityEstimator mergedHll = CardinalityEstimator.Merge(hlls);
-            Console.WriteLine("Run time: {0}", runStopwatch.Elapsed);
-            Console.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
+            this.output.WriteLine("Run time: {0}", runStopwatch.Elapsed);
+            this.output.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
 
             double obsError = Math.Abs(mergedHll.Count()/(double) (expectedCount) - 1.0);
-            Console.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
+            this.output.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
             Assert.True(obsError <= maxAcceptedError, string.Format("Observed error was over {0}", maxAcceptedError));
-            Console.WriteLine();
+            this.output.WriteLine(string.Empty);
         }
 
         /// <summary>
@@ -417,10 +419,10 @@ namespace CardinalityEstimation.Test
             return GC.GetTotalMemory(true);
         }
 
-        private static void ReportMemoryCost(long gcMemoryAtStart)
+        private static void ReportMemoryCost(long gcMemoryAtStart, ITestOutputHelper outputHelper)
         {
             long memoryCost = GetGcMemory() - gcMemoryAtStart;
-            Console.WriteLine("Appx. memory cost: {0} bytes", memoryCost);
+            outputHelper.WriteLine("Appx. memory cost: {0} bytes", memoryCost);
         }
     }
 }
