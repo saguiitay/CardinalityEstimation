@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netcoreapp3.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netcoreapp3.1</TargetFrameworks>
     <Configurations>Debug;Release;Release-Signed;Release-Unsigned</Configurations>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
@@ -10,9 +10,9 @@
     <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
     <Authors>Oron Navon;Sagui Itay</Authors>
     <Company></Company>
-    <PackageLicenseUrl>https://github.com/Microsoft/CardinalityEstimation/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageLicenseFile>..\LICENSE.md</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/Microsoft/CardinalityEstimation</PackageProjectUrl>
-    <Copyright>Microsoft 2015, MIT License</Copyright>
+    <Copyright>Microsoft 2021, MIT License</Copyright>
     <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
     <PackageReleaseNotes>Align all versions (.Net Core/Standard, signed/unsigned)</PackageReleaseNotes>
     <AssemblyVersion>1.9.0.0</AssemblyVersion>
@@ -31,5 +31,8 @@
   <ItemGroup Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">
     <PackageReference Include="murmurhash" Version="1.0.3" />
   </ItemGroup>
-
+  
+  <ItemGroup>
+    <None Include="..\LICENSE.md" Pack="true" PackagePath="$(PackageLicenseFile)"/>
+  </ItemGroup>
 </Project>
