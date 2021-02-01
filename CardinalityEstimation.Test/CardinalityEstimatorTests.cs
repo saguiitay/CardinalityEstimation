@@ -36,7 +36,7 @@ namespace CardinalityEstimation.Test
 
     using Xunit;
     using Xunit.Abstractions;
-    
+
     public class CardinalityEstimatorTests : IDisposable
     {
         private const int ElementSizeInBytes = 20;
@@ -114,6 +114,16 @@ namespace CardinalityEstimation.Test
             }
         }
 
+        [Fact]
+        public void AccuracyIsWithinMarginForDirectCountingDisabledUnder100Members()
+        {
+            for (var i = 1; i < 100; i++)
+            {
+                RunTest(0.1, i, disableDirectCount: true);
+                RunTest(0.03, i, disableDirectCount: true);
+                RunTest(0.005, i, disableDirectCount: true);
+            }
+        }
 
         [Fact]
         public void TestAccuracySmallCardinality()
@@ -351,8 +361,9 @@ namespace CardinalityEstimation.Test
         /// <param name="maxAcceptedError">Maximum allowed error rate. Default is 4 times <paramref name="stdError" /></param>
         /// <param name="numHllInstances">Number of estimators to create. Generated elements will be assigned to one of the estimators at random</param>
         /// <param name="sequential">When false, elements will be generated at random. When true, elements will be 0,1,2...</param>
+        /// <param name="disableDirectCount">When true, will disable using direct counting for estimators less than 100 elements.</param>
         private void RunTest(double stdError, long expectedCount, double? maxAcceptedError = null, int numHllInstances = 1,
-            bool sequential = false)
+            bool sequential = false, bool disableDirectCount = false)
         {
             maxAcceptedError = maxAcceptedError ?? 4*stdError; // should fail once in A LOT of runs
             int b = GetAccuracyInBits(stdError);
@@ -364,7 +375,7 @@ namespace CardinalityEstimation.Test
             var hlls = new CardinalityEstimator[numHllInstances];
             for (var i = 0; i < numHllInstances; i++)
             {
-                hlls[i] = new CardinalityEstimator(b);
+                hlls[i] = new CardinalityEstimator(b, useDirectCounting: !disableDirectCount);
             }
 
             var nextMember = new byte[ElementSizeInBytes];
