@@ -37,7 +37,6 @@ namespace CardinalityEstimation.Test
     using Xunit;
     using Xunit.Abstractions;
 
-
     public class CardinalityEstimatorTests : IDisposable
     {
         private const int ElementSizeInBytes = 20;

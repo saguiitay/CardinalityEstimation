@@ -33,17 +33,19 @@ namespace CardinalityEstimation.Test
     using System.Runtime.Serialization.Formatters.Binary;
     using CardinalityEstimation.Hash;
     using Xunit;
+    using Xunit.Abstractions;
 
-    
     public class CardinalityEstimatorSerializerTests : IDisposable
     {
         private const int ElementSizeInBytes = 20;
         public static readonly Random Rand = new Random();
 
-        private Stopwatch stopwatch;
+        private readonly ITestOutputHelper output;
+        private readonly Stopwatch stopwatch;
 
-        public CardinalityEstimatorSerializerTests()
+        public CardinalityEstimatorSerializerTests(ITestOutputHelper outputHelper)
         {
+            this.output = outputHelper;
             this.stopwatch = new Stopwatch();
             this.stopwatch.Start();
         }
@@ -51,7 +53,7 @@ namespace CardinalityEstimation.Test
         public void Dispose()
         {
             this.stopwatch.Stop();
-            Console.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
+            this.output.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
         }
 
         [Fact]
@@ -173,7 +175,7 @@ namespace CardinalityEstimation.Test
 
                 long customAverageSize = customTotalSize/runs, defaultAverageSize = defaultTotalSize/runs;
 
-                Console.WriteLine("{0} | {1} | {2} | {3:P}", cardinality, customAverageSize, defaultAverageSize,
+                this.output.WriteLine("{0} | {1} | {2} | {3:P}", cardinality, customAverageSize, defaultAverageSize,
                     1 - ((float) customAverageSize/defaultAverageSize));
             }
         }

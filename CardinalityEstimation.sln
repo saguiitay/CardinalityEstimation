@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2047
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation", "CardinalityEstimation.csproj", "{214AB5A6-DD68-432C-893A-0F6CC70D2005}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation", "CardinalityEstimation\CardinalityEstimation.csproj", "{214AB5A6-DD68-432C-893A-0F6CC70D2005}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation.Test", "..\CardinalityEstimation.Test\CardinalityEstimation.Test.csproj", "{8029A737-1861-4FBB-A85E-BF4B50DF7135}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation.Test", "CardinalityEstimation.Test\CardinalityEstimation.Test.csproj", "{8029A737-1861-4FBB-A85E-BF4B50DF7135}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

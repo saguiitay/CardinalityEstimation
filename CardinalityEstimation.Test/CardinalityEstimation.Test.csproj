@@ -20,5 +20,4 @@
   <ItemGroup>
     <ProjectReference Include="..\CardinalityEstimation\CardinalityEstimation.csproj" />
   </ItemGroup>
-
 </Project>
