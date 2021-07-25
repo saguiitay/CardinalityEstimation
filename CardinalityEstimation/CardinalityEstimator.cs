@@ -106,7 +106,7 @@ namespace CardinalityEstimation
         ///     True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         ///     False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
-        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) : this(CreateEmptyState(b, hashFunctionId, useDirectCounting)) {}
+        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) : this(CreateEmptyState(b, hashFunctionId, useDirectCounting)) { }
 
         /// <summary>
         ///     Creates a CardinalityEstimator with the given <paramref name="state" />
@@ -115,7 +115,7 @@ namespace CardinalityEstimation
         {
             this.bitsPerIndex = state.BitsPerIndex;
             this.bitsForHll = 64 - this.bitsPerIndex;
-            this.m = (int) Math.Pow(2, this.bitsPerIndex);
+            this.m = (int)Math.Pow(2, this.bitsPerIndex);
             this.alphaM = GetAlphaM(this.m);
             this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
 
@@ -133,7 +133,7 @@ namespace CardinalityEstimation
             this.CountAdditions = state.CountAdditions;
 
             // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
-            this.sparseMaxElements = Math.Max(0, this.m/15 - 10);
+            this.sparseMaxElements = Math.Max(0, this.m / 15 - 10);
             // If necessary, switch to the dense representation
             if (this.sparseMaxElements <= 0)
             {
@@ -159,60 +159,68 @@ namespace CardinalityEstimation
 
         public ulong CountAdditions { get; private set; }
 
-        public void Add(string element)
+        public bool Add(string element)
         {
             ulong hashCode = GetHashCode(Encoding.UTF8.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(int element)
+        public bool Add(int element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(uint element)
+        public bool Add(uint element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(long element)
+        public bool Add(long element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(ulong element)
+        public bool Add(ulong element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(float element)
+        public bool Add(float element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(double element)
+        public bool Add(double element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(byte[] element)
+        public bool Add(byte[] element)
         {
             ulong hashCode = GetHashCode(element);
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
 
@@ -221,7 +229,7 @@ namespace CardinalityEstimation
             // If only a few elements have been seen, return the exact count
             if (this.directCount != null)
             {
-                return (ulong) this.directCount.Count;
+                return (ulong)this.directCount.Count;
             }
 
             double zInverse = 0;
@@ -252,8 +260,8 @@ namespace CardinalityEstimation
                 }
             }
 
-            double e = this.alphaM*this.m*this.m/zInverse;
-            if (e <= 5.0*this.m)
+            double e = this.alphaM * this.m * this.m / zInverse;
+            if (e <= 5.0 * this.m)
             {
                 e = BiasCorrection.CorrectBias(e, this.bitsPerIndex);
             }
@@ -262,7 +270,7 @@ namespace CardinalityEstimation
             if (v > 0)
             {
                 // LinearCounting estimate
-                h = this.m*Math.Log(this.m/v);
+                h = this.m * Math.Log(this.m / v);
             }
             else
             {
@@ -271,9 +279,9 @@ namespace CardinalityEstimation
 
             if (h <= this.subAlgorithmSelectionThreshold)
             {
-                return (ulong) Math.Round(h);
+                return (ulong)Math.Round(h);
             }
-            return (ulong) Math.Round(e);
+            return (ulong)Math.Round(e);
         }
 
         /// <summary>
@@ -477,33 +485,40 @@ namespace CardinalityEstimation
         ///     Adds an element's hash code to the counted set
         /// </summary>
         /// <param name="hashCode">Hash code of the element to add</param>
-        private void AddElementHash(ulong hashCode)
+        private bool AddElementHash(ulong hashCode)
         {
+            var changed = false;
             if (this.directCount != null)
             {
-                this.directCount.Add(hashCode);
+                changed = this.directCount.Add(hashCode);
                 if (this.directCount.Count > DirectCounterMaxElements)
                 {
                     this.directCount = null;
+                    changed = true;
                 }
             }
 
-            var substream = (ushort) (hashCode >> this.bitsForHll);
+            var substream = (ushort)(hashCode >> this.bitsForHll);
             byte sigma = GetSigma(hashCode, this.bitsForHll);
             if (this.isSparse)
             {
                 byte prevRank;
                 this.lookupSparse.TryGetValue(substream, out prevRank);
                 this.lookupSparse[substream] = Math.Max(prevRank, sigma);
+                changed = changed || (prevRank != sigma && this.lookupSparse[substream] == sigma);
                 if (this.lookupSparse.Count > this.sparseMaxElements)
                 {
                     SwitchToDenseRepresentation();
+                    changed = true;
                 }
             }
             else
             {
-                this.lookupDense[substream] = Math.Max(this.lookupDense[substream], sigma);
+                var prevMax = this.lookupDense[substream];
+                this.lookupDense[substream] = Math.Max(prevMax, sigma);
+                changed = changed || (prevMax != sigma && this.lookupDense[substream] == sigma);
             }
+            return changed;
         }
 
         /// <summary>
@@ -522,7 +537,7 @@ namespace CardinalityEstimation
                 case 64:
                     return 0.709;
                 default:
-                    return 0.7213/(1 + 1.079/m);
+                    return 0.7213 / (1 + 1.079 / m);
             }
         }
 
@@ -535,7 +550,7 @@ namespace CardinalityEstimation
         public static double Log2(double x)
         {
             const double ln2 = 0.693147180559945309417232121458;
-            return Math.Log(x)/ln2;
+            return Math.Log(x) / ln2;
         }
 
         /// <summary>
