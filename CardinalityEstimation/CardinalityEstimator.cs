@@ -106,7 +106,7 @@ namespace CardinalityEstimation
         ///     True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         ///     False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
-        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) : this(CreateEmptyState(b, hashFunctionId, useDirectCounting)) { }
+        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) : this(CreateEmptyState(b, hashFunctionId, useDirectCounting)) {}
 
         /// <summary>
         ///     Creates a CardinalityEstimator with the given <paramref name="state" />
@@ -115,7 +115,7 @@ namespace CardinalityEstimation
         {
             this.bitsPerIndex = state.BitsPerIndex;
             this.bitsForHll = 64 - this.bitsPerIndex;
-            this.m = (int)Math.Pow(2, this.bitsPerIndex);
+            this.m = (int) Math.Pow(2, this.bitsPerIndex);
             this.alphaM = GetAlphaM(this.m);
             this.subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(this.bitsPerIndex);
 
@@ -133,7 +133,7 @@ namespace CardinalityEstimation
             this.CountAdditions = state.CountAdditions;
 
             // Each element in the sparse representation takes 15 bytes, and there is some constant overhead
-            this.sparseMaxElements = Math.Max(0, this.m / 15 - 10);
+            this.sparseMaxElements = Math.Max(0, this.m/15 - 10);
             // If necessary, switch to the dense representation
             if (this.sparseMaxElements <= 0)
             {
@@ -223,13 +223,12 @@ namespace CardinalityEstimation
             return changed;
         }
 
-
         public ulong Count()
         {
             // If only a few elements have been seen, return the exact count
             if (this.directCount != null)
             {
-                return (ulong)this.directCount.Count;
+                return (ulong) this.directCount.Count;
             }
 
             double zInverse = 0;
@@ -260,8 +259,8 @@ namespace CardinalityEstimation
                 }
             }
 
-            double e = this.alphaM * this.m * this.m / zInverse;
-            if (e <= 5.0 * this.m)
+            double e = this.alphaM*this.m*this.m/zInverse;
+            if (e <= 5.0*this.m)
             {
                 e = BiasCorrection.CorrectBias(e, this.bitsPerIndex);
             }
@@ -270,7 +269,7 @@ namespace CardinalityEstimation
             if (v > 0)
             {
                 // LinearCounting estimate
-                h = this.m * Math.Log(this.m / v);
+                h = this.m*Math.Log(this.m/v);
             }
             else
             {
@@ -279,9 +278,9 @@ namespace CardinalityEstimation
 
             if (h <= this.subAlgorithmSelectionThreshold)
             {
-                return (ulong)Math.Round(h);
+                return (ulong) Math.Round(h);
             }
-            return (ulong)Math.Round(e);
+            return (ulong) Math.Round(e);
         }
 
         /// <summary>
@@ -537,7 +536,7 @@ namespace CardinalityEstimation
                 case 64:
                     return 0.709;
                 default:
-                    return 0.7213 / (1 + 1.079 / m);
+                    return 0.7213/(1 + 1.079/m);
             }
         }
 
@@ -550,7 +549,7 @@ namespace CardinalityEstimation
         public static double Log2(double x)
         {
             const double ln2 = 0.693147180559945309417232121458;
-            return Math.Log(x) / ln2;
+            return Math.Log(x)/ln2;
         }
 
         /// <summary>
