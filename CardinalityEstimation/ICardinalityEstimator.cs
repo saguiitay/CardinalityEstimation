@@ -35,7 +35,8 @@ namespace CardinalityEstimation
         ///     Adds an element to the counted set.  Elements added multiple times will be counted only once.
         /// </summary>
         /// <param name="element">The element to add</param>
-        void Add(T element);
+        /// <returns>True if the state of the estimator changed, false otherwise</returns>
+        bool Add(T element);
 
         /// <summary>
         ///     Returns the estimated number of unique elements in the counted set

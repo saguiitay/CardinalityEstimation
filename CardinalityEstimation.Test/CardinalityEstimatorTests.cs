@@ -66,8 +66,8 @@ namespace CardinalityEstimation.Test
             Assert.Equal(51, CardinalityEstimator.GetSigma(0, bitsToCount));
             Assert.Equal(50, CardinalityEstimator.GetSigma(1, bitsToCount));
             Assert.Equal(47, CardinalityEstimator.GetSigma(8, bitsToCount));
-            Assert.Equal(1, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount) - 1), bitsToCount));
-            Assert.Equal(51, CardinalityEstimator.GetSigma((ulong) (Math.Pow(2, bitsToCount + 1)), bitsToCount));
+            Assert.Equal(1, CardinalityEstimator.GetSigma((ulong)(Math.Pow(2, bitsToCount) - 1), bitsToCount));
+            Assert.Equal(51, CardinalityEstimator.GetSigma((ulong)(Math.Pow(2, bitsToCount + 1)), bitsToCount));
         }
 
         [Fact]
@@ -87,6 +87,43 @@ namespace CardinalityEstimation.Test
             estimator.Merge(estimator2);
 
             Assert.Equal(3UL, estimator.CountAdditions);
+        }
+
+        [Fact]
+        public void TestChanged()
+        {
+            var estimator = new CardinalityEstimator();
+
+            Assert.Equal(0UL, estimator.CountAdditions);
+
+            bool changed = estimator.Add(0);
+            Assert.True(changed);
+            changed = estimator.Add(0);
+            Assert.False(changed);
+
+            for (var i = 1; i < 100; i++)
+            {
+                changed = estimator.Add(i);
+                Assert.True(changed);
+            }
+
+            changed = estimator.Add(100);
+            Assert.True(changed); //First change from direct count
+
+            changed = estimator.Add(100);
+            Assert.False(changed);
+
+            changed = estimator.Add(101);
+            Assert.True(changed);
+
+            changed = estimator.Add(102);
+            Assert.True(changed);
+
+            changed = estimator.Add(0);
+            Assert.False(changed);
+
+            changed = estimator.Add(116); //element doesn't exist but the estimator internal state doesn't change
+            Assert.False(changed);
         }
 
         [Fact]
@@ -128,7 +165,7 @@ namespace CardinalityEstimation.Test
         [Fact]
         public void TestAccuracySmallCardinality()
         {
-            for (var i = 1; i < 10000; i = i*2)
+            for (var i = 1; i < 10000; i = i * 2)
             {
                 RunTest(0.26, i, 1.5);
                 RunTest(0.008125, i, 0.05);
@@ -210,7 +247,7 @@ namespace CardinalityEstimation.Test
             {
                 binaryFormatter.Serialize(memoryStream, original);
                 memoryStream.Seek(0, SeekOrigin.Begin);
-                CardinalityEstimator copy = (CardinalityEstimator) binaryFormatter.Deserialize(memoryStream);
+                CardinalityEstimator copy = (CardinalityEstimator)binaryFormatter.Deserialize(memoryStream);
 
                 Assert.Equal(2UL, copy.Count());
                 copy.Add(5);
@@ -262,7 +299,7 @@ namespace CardinalityEstimation.Test
         public void TestPast32BitLimit()
         {
             const double stdError = 0.008125;
-            var cardinality = (long) (Math.Pow(2, 32) + 1703); // just some big number beyond 32 bits
+            var cardinality = (long)(Math.Pow(2, 32) + 1703); // just some big number beyond 32 bits
             RunTest(stdError, cardinality);
         }
 
@@ -304,9 +341,9 @@ namespace CardinalityEstimation.Test
                 Rand.NextBytes(nextMember);
                 hll.Add(nextMember);
 
-                if (i%1007 == 0) // just some interval to sample error at, can be any number
+                if (i % 1007 == 0) // just some interval to sample error at, can be any number
                 {
-                    double error = (hll.Count() - (double) (i + 1))/((double) i + 1);
+                    double error = (hll.Count() - (double)(i + 1)) / ((double)i + 1);
                     if (error > maxError)
                     {
                         maxError = error;
@@ -365,7 +402,7 @@ namespace CardinalityEstimation.Test
         private void RunTest(double stdError, long expectedCount, double? maxAcceptedError = null, int numHllInstances = 1,
             bool sequential = false, bool disableDirectCount = false)
         {
-            maxAcceptedError = maxAcceptedError ?? 4*stdError; // should fail once in A LOT of runs
+            maxAcceptedError = maxAcceptedError ?? 4 * stdError; // should fail once in A LOT of runs
             int b = GetAccuracyInBits(stdError);
 
             var runStopwatch = new Stopwatch();
@@ -391,7 +428,7 @@ namespace CardinalityEstimation.Test
                 else
                 {
                     Rand.NextBytes(nextMember);
-                    hlls[chosenHll].Add(nextMember);                    
+                    hlls[chosenHll].Add(nextMember);
                 }
             }
 
@@ -403,7 +440,7 @@ namespace CardinalityEstimation.Test
             this.output.WriteLine("Run time: {0}", runStopwatch.Elapsed);
             this.output.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
 
-            double obsError = Math.Abs(mergedHll.Count()/(double) (expectedCount) - 1.0);
+            double obsError = Math.Abs(mergedHll.Count() / (double)(expectedCount) - 1.0);
             this.output.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
             Assert.True(obsError <= maxAcceptedError, string.Format("Observed error was over {0}", maxAcceptedError));
             this.output.WriteLine(string.Empty);
@@ -419,8 +456,8 @@ namespace CardinalityEstimation.Test
         /// <returns></returns>
         private static int GetAccuracyInBits(double stdError)
         {
-            double sqrtm = 1.04/stdError;
-            var b = (int) Math.Ceiling(CardinalityEstimator.Log2(sqrtm*sqrtm));
+            double sqrtm = 1.04 / stdError;
+            var b = (int)Math.Ceiling(CardinalityEstimator.Log2(sqrtm * sqrtm));
             return b;
         }
 
