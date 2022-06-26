@@ -23,6 +23,8 @@ jobs:
         dotnet-version: 6.0.x
     - name: Restore dependencies
       run: dotnet restore
+    - name: Build Unsigned
+      run: dotnet build -c Release-Unsigned --no-restore
     - name: Push Unsigned to NuGet
       run: |
         dotnet pack -c Release-Unsigned -o $PWD/Release-Unsigned/nuget
