@@ -189,62 +189,69 @@ namespace CardinalityEstimation
 
         public ulong CountAdditions { get; private set; }
 
-        public void Add(string element)
+        public bool Add(string element)
         {
             ulong hashCode = GetHashCode(Encoding.UTF8.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(int element)
+        public bool Add(int element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(uint element)
+        public bool Add(uint element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(long element)
+        public bool Add(long element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(ulong element)
+        public bool Add(ulong element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(float element)
+        public bool Add(float element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(double element)
+        public bool Add(double element)
         {
             ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
 
-        public void Add(byte[] element)
+        public bool Add(byte[] element)
         {
             ulong hashCode = GetHashCode(element);
-            AddElementHash(hashCode);
+            bool changed = AddElementHash(hashCode);
             this.CountAdditions++;
+            return changed;
         }
-
 
         public ulong Count()
         {
@@ -507,33 +514,40 @@ namespace CardinalityEstimation
         ///     Adds an element's hash code to the counted set
         /// </summary>
         /// <param name="hashCode">Hash code of the element to add</param>
-        private void AddElementHash(ulong hashCode)
+        private bool AddElementHash(ulong hashCode)
         {
+            var changed = false;
             if (this.directCount != null)
             {
-                this.directCount.Add(hashCode);
+                changed = this.directCount.Add(hashCode);
                 if (this.directCount.Count > DirectCounterMaxElements)
                 {
                     this.directCount = null;
+                    changed = true;
                 }
             }
 
-            var substream = (ushort) (hashCode >> this.bitsForHll);
+            var substream = (ushort)(hashCode >> this.bitsForHll);
             byte sigma = GetSigma(hashCode, this.bitsForHll);
             if (this.isSparse)
             {
                 byte prevRank;
                 this.lookupSparse.TryGetValue(substream, out prevRank);
                 this.lookupSparse[substream] = Math.Max(prevRank, sigma);
+                changed = changed || (prevRank != sigma && this.lookupSparse[substream] == sigma);
                 if (this.lookupSparse.Count > this.sparseMaxElements)
                 {
                     SwitchToDenseRepresentation();
+                    changed = true;
                 }
             }
             else
             {
-                this.lookupDense[substream] = Math.Max(this.lookupDense[substream], sigma);
+                var prevMax = this.lookupDense[substream];
+                this.lookupDense[substream] = Math.Max(prevMax, sigma);
+                changed = changed || (prevMax != sigma && this.lookupDense[substream] == sigma);
             }
+            return changed;
         }
 
         /// <summary>
