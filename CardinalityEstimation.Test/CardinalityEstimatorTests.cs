@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -47,15 +47,15 @@ namespace CardinalityEstimation.Test
 
         public CardinalityEstimatorTests(ITestOutputHelper outputHelper)
         {
-            this.output = outputHelper;
-            this.stopwatch = new Stopwatch();
-            this.stopwatch.Start();
+            output = outputHelper;
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
         }
 
         public void Dispose()
         {
-            this.stopwatch.Stop();
-            this.output.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
+            stopwatch.Stop();
+            output.WriteLine("Total test time: {0}", stopwatch.Elapsed);
         }
 
         [Fact]
@@ -67,7 +67,7 @@ namespace CardinalityEstimation.Test
             Assert.Equal(50, CardinalityEstimator.GetSigma(1, bitsToCount));
             Assert.Equal(47, CardinalityEstimator.GetSigma(8, bitsToCount));
             Assert.Equal(1, CardinalityEstimator.GetSigma((ulong)(Math.Pow(2, bitsToCount) - 1), bitsToCount));
-            Assert.Equal(51, CardinalityEstimator.GetSigma((ulong)(Math.Pow(2, bitsToCount + 1)), bitsToCount));
+            Assert.Equal(51, CardinalityEstimator.GetSigma((ulong)Math.Pow(2, bitsToCount + 1), bitsToCount));
         }
 
         [Fact]
@@ -165,7 +165,7 @@ namespace CardinalityEstimation.Test
         [Fact]
         public void TestAccuracySmallCardinality()
         {
-            for (var i = 1; i < 10000; i = i * 2)
+            for (var i = 1; i < 10000; i *= 2)
             {
                 RunTest(0.26, i, 1.5);
                 RunTest(0.008125, i, 0.05);
@@ -220,7 +220,7 @@ namespace CardinalityEstimation.Test
         [Fact]
         public void StaticMergeHandlesNullParameter()
         {
-            CardinalityEstimator result = CardinalityEstimator.Merge(null as IEnumerable<CardinalityEstimator>);
+            CardinalityEstimator result = CardinalityEstimator.Merge(null);
             Assert.Null(result);
         }
 
@@ -352,13 +352,13 @@ namespace CardinalityEstimation.Test
                 }
             }
 
-            this.output.WriteLine("Worst: {0}", worstMember);
-            this.output.WriteLine("Max error: {0}", maxError);
+            output.WriteLine("Worst: {0}", worstMember);
+            output.WriteLine("Max error: {0}", maxError);
 
             Assert.True(true);
         }
 
-        [Fact()]
+        [Fact]
         public void DirectCountingIsResetWhenMergingAlmostFullEstimators()
         {
             var addedEstimator = new CardinalityEstimator();
@@ -387,7 +387,7 @@ namespace CardinalityEstimation.Test
             Assert.Equal(stream1.Length, stream2.Length);
         }
 
-        [Fact()]
+        [Fact]
         public void CopyConstructorCorrectlyCopiesValues()
         {
             for (int b = 4; b < 16; b++)
@@ -429,11 +429,9 @@ namespace CardinalityEstimation.Test
             }
         }
 
-
-
         /// <summary>
-        ///     Generates <paramref name="expectedCount" /> random (or sequential) elements and adds them to CardinalityEstimators, then asserts that
-        ///     the observed error rate is no more than <paramref name="maxAcceptedError" />
+        /// Generates <paramref name="expectedCount" /> random (or sequential) elements and adds them to CardinalityEstimators, then asserts that
+        /// the observed error rate is no more than <paramref name="maxAcceptedError" />
         /// </summary>
         /// <param name="stdError">Expected standard error of the estimators (upper bound)</param>
         /// <param name="expectedCount">number of elements to generate in total</param>
@@ -444,7 +442,7 @@ namespace CardinalityEstimation.Test
         private void RunTest(double stdError, long expectedCount, double? maxAcceptedError = null, int numHllInstances = 1,
             bool sequential = false, bool disableDirectCount = false)
         {
-            maxAcceptedError = maxAcceptedError ?? 10 * stdError; // should fail once in A LOT of runs
+            maxAcceptedError ??= 10 * stdError; // should fail once in A LOT of runs
             int b = GetAccuracyInBits(stdError);
 
             var runStopwatch = new Stopwatch();
@@ -475,31 +473,30 @@ namespace CardinalityEstimation.Test
             }
 
             runStopwatch.Stop();
-            ReportMemoryCost(gcMemoryAtStart, this.output); // done here so references can't be GC'ed yet
+            ReportMemoryCost(gcMemoryAtStart, output); // done here so references can't be GC'ed yet
 
             // Merge
             CardinalityEstimator mergedHll = CardinalityEstimator.Merge(hlls);
-            this.output.WriteLine("Run time: {0}", runStopwatch.Elapsed);
-            this.output.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
+            output.WriteLine("Run time: {0}", runStopwatch.Elapsed);
+            output.WriteLine("Expected {0}, got {1}", expectedCount, mergedHll.Count());
 
-            double obsError = Math.Abs(mergedHll.Count() / (double)(expectedCount) - 1.0);
-            this.output.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
+            double obsError = Math.Abs(mergedHll.Count() / (double)expectedCount - 1.0);
+            output.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
             Assert.True(obsError <= maxAcceptedError, string.Format("Observed error was {0}, over {1}, when adding {2} items", obsError, maxAcceptedError, expectedCount));
-            this.output.WriteLine(string.Empty);
+            output.WriteLine(string.Empty);
         }
 
         /// <summary>
-        ///     Gets the number of indexing bits required to produce a given standard error
+        /// Gets the number of indexing bits required to produce a given standard error
         /// </summary>
         /// <param name="stdError">
-        ///     Standard error, which determines accuracy and memory consumption. For large cardinalities, the observed error is usually less than
-        ///     3 * <paramref name="stdError" />.
+        /// Standard error, which determines accuracy and memory consumption. For large cardinalities, the observed error is usually less than
+        /// 3 * <paramref name="stdError" />.
         /// </param>
-        /// <returns></returns>
         private static int GetAccuracyInBits(double stdError)
         {
             double sqrtm = 1.04 / stdError;
-            var b = (int)Math.Ceiling(CardinalityEstimator.Log2(sqrtm * sqrtm));
+            var b = (int)Math.Ceiling(Log2(sqrtm * sqrtm));
             return b;
         }
 
@@ -513,6 +510,18 @@ namespace CardinalityEstimation.Test
         {
             long memoryCost = GetGcMemory() - gcMemoryAtStart;
             outputHelper.WriteLine("Appx. memory cost: {0} bytes", memoryCost);
+        }
+
+        /// <summary>
+        /// Returns the base-2 logarithm of <paramref name="x" />.
+        /// This implementation is faster than <see cref="Math.Log(double,double)" /> as it avoids input checks
+        /// </summary>
+        /// <param name="x"></param>
+        /// <returns>The base-2 logarithm of <paramref name="x" /></returns>
+        private static double Log2(double x)
+        {
+            const double ln2 = 0.693147180559945309417232121458;
+            return Math.Log(x) / ln2;
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -29,29 +29,29 @@ namespace CardinalityEstimation
     using System.Linq;
 
     /// <summary>
-    ///     Bias correction code and values for small cardinalities, see
-    ///     https://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen#
+    /// Bias correction code and values for small cardinalities, see
+    /// https://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen#
     /// </summary>
     internal static class BiasCorrection
     {
         /// <summary>
-        ///     Various raw estimates used to find the index of the bias value.  RawEstimate[k - BitsIndexOffset] contains an array of raw estimates
-        ///     sampled from a k-bit estimator, <see cref="BitsIndexOffset" />
+        /// Various raw estimates used to find the index of the bias value.  RawEstimate[k - BitsIndexOffset] contains an array of raw estimates
+        /// sampled from a k-bit estimator, <see cref="BitsIndexOffset" />
         /// </summary>
         internal static readonly double[][] RawEstimate;
 
         /// <summary>
-        ///     Bias values, each corresponding to the <see cref="RawEstimate" /> with the same indexes.
+        /// Bias values, each corresponding to the <see cref="RawEstimate" /> with the same indexes.
         /// </summary>
         internal static readonly double[][] BiasData;
 
         /// <summary>
-        ///     Offset for lookup in the array. The values for a k-bit estimator will be at index k-BitsIndexOffset
+        /// Offset for lookup in the array. The values for a k-bit estimator will be at index k-BitsIndexOffset
         /// </summary>
         private const int BitsIndexOffset = 4;
 
         /// <summary>
-        ///     Fill the raw estimate and bias data arrays
+        /// Fill the raw estimate and bias data arrays
         /// </summary>
         static BiasCorrection()
         {
@@ -63,7 +63,7 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Corrects the bias for the given <paramref name="valueToCorrect" />
+        /// Corrects the bias for the given <paramref name="valueToCorrect" />
         /// </summary>
         /// <param name="valueToCorrect">Cardinality estimate to correct</param>
         /// <param name="bits">Number of bits in the estimator</param>
@@ -75,13 +75,13 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Gets the estimated bias for the given <paramref name="rawEstimate" />
+        /// Gets the estimated bias for the given <paramref name="rawEstimate" />
         /// </summary>
         /// <param name="rawEstimate">Estimated cardinality before bias correction</param>
         /// <param name="bits">Number of bits in the estimator</param>
         /// <returns>
-        ///     The estimated bias for the given raw estimate. Subtract this value from the <paramref name="rawEstimate" /> to obtain a corrected
-        ///     estimate
+        /// The estimated bias for the given raw estimate. Subtract this value from the <paramref name="rawEstimate" /> to obtain a corrected
+        /// estimate
         /// </returns>
         private static double GetBias(double rawEstimate, int bits)
         {
@@ -117,7 +117,7 @@ namespace CardinalityEstimation
 
             double fraction = (rawEstimate - nextSmaller)/(nextLarger - nextSmaller);
 
-            double bias = nextSmallerBias + fraction*(nextLargerBias - nextSmallerBias);
+            double bias = nextSmallerBias + (fraction * (nextLargerBias - nextSmallerBias));
             return bias;
         }
 

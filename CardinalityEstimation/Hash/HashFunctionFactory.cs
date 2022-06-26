@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -30,7 +30,7 @@ namespace CardinalityEstimation.Hash
     internal static class HashFunctionFactory
     {
         /// <summary>
-        ///     Creates a hash function with the implementation id <paramref name="id" />
+        /// Creates a hash function with the implementation id <paramref name="id" />
         /// </summary>
         /// <param name="id">Identifies a particular implementation of a hash function</param>
         /// <returns>The relevant hash function implementation</returns>

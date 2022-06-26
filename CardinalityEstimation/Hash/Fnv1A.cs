@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -26,14 +26,14 @@
 namespace CardinalityEstimation.Hash
 {
     /// <summary>
-    ///     Helper class to computes the 64-bit FNV-1a hash of byte arrays, <see cref="GetHashCode" />
+    /// Helper class to computes the 64-bit FNV-1a hash of byte arrays, <see cref="GetHashCode" />
     /// </summary>
     internal class Fnv1A : IHashFunction
     {
         /// <summary>
-        ///     Computes the 64-bit FNV-1a hash of the given <paramref name="bytes" />, see
-        ///     <see cref="http://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function" />
-        ///     and <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
+        /// Computes the 64-bit FNV-1a hash of the given <paramref name="bytes" />, see
+        /// <see cref="http://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function" />
+        /// and <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
         /// </summary>
         /// <param name="bytes">Text to compute the hash for</param>
         /// <returns>The 64-bit fnv1a hash</returns>
