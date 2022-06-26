@@ -25,7 +25,11 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
-    - name: Push to NuGet
+    - name: Push Unsigned to NuGet
       run: |
-        dotnet pack -c Release -o $PWD/nuget
-        for file in nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
+        dotnet pack -c Release-Unsigned -o $PWD/nuget
+        for file in CardinalityEstimation/bin/Release-Unsigned/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
+    - name: Push Signed to NuGet
+      run: |
+        dotnet pack -c Release-Signed -o $PWD/nuget
+        for file in CardinalityEstimation/bin/Release-Signed/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
