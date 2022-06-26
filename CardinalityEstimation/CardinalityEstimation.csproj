@@ -1,39 +1,47 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>net6.0;netstandard2.0;netcoreapp3.1</TargetFrameworks>
+        <Configurations>Debug;Release;Release-Signed;Release-Unsigned</Configurations>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
+        <PackageId Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
+        <Version>1.11</Version>
+        <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
+        <Authors>Oron Navon;Sagui Itay</Authors>
+        <Company></Company>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/saguiitay/CardinalityEstimation</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Copyright>Copyright © Sagui Itay 2022</Copyright>
+        <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
+        <PackageReleaseNotes>
+            Remove usage of LINQ (#37)
+            Cosmetic changes (#36)
+            Changed Add to return bool (#33)
+            Less sensitive UTs (#35)
+            Add copy CTOR to CardinalityEstimator and implement IEquatable (#34)
+        </PackageReleaseNotes>
+        <AssemblyVersion>1.11.0.0</AssemblyVersion>
+        <FileVersion>1.11.0.0</FileVersion>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netcoreapp3.1</TargetFrameworks>
-    <Configurations>Debug;Release;Release-Signed;Release-Unsigned</Configurations>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
-    <PackageId Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
-    <Version>1.10</Version>
-    <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
-    <Authors>Oron Navon;Sagui Itay</Authors>
-    <Company></Company>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageProjectUrl>https://github.com/Microsoft/CardinalityEstimation</PackageProjectUrl>
-    <Copyright>Microsoft 2021, MIT License</Copyright>
-    <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
-    <PackageReleaseNotes>Update to .Net Core 3.1
-Make direct counting option</PackageReleaseNotes>
-    <AssemblyVersion>1.10.0.0</AssemblyVersion>
-    <FileVersion>1.10.0.0</FileVersion>
-  </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
+        <AssemblyOriginatorKeyFile>cardinalityestimation.snk</AssemblyOriginatorKeyFile>
+        <SignAssembly>true</SignAssembly>
+    </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
-    <AssemblyOriginatorKeyFile>cardinalityestimation.snk</AssemblyOriginatorKeyFile>
-    <SignAssembly>true</SignAssembly>
-  </PropertyGroup>
+    <ItemGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
+        <PackageReference Include="murmurhash-signed" Version="1.0.3" />
+    </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
-    <PackageReference Include="murmurhash-signed" Version="1.0.3" />
-  </ItemGroup>
+    <ItemGroup Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">
+        <PackageReference Include="murmurhash" Version="1.0.3" />
+    </ItemGroup>
 
-  <ItemGroup Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">
-    <PackageReference Include="murmurhash" Version="1.0.3" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <None Include="..\LICENSE.md" Pack="true" PackagePath="$(PackageLicenseFile)"/>
-  </ItemGroup>
+    <ItemGroup>
+        <None Include="..\LICENSE.md" Pack="true" PackagePath="LICENSE.md"/>
+        <None Include="..\README.md" Pack="true" PackagePath="$(PackageReadmeFile)"/>
+    </ItemGroup>
 </Project>
