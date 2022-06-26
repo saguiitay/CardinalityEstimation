@@ -407,7 +407,7 @@ namespace CardinalityEstimation.Test
         private void RunTest(double stdError, long expectedCount, double? maxAcceptedError = null, int numHllInstances = 1,
             bool sequential = false, bool disableDirectCount = false)
         {
-            maxAcceptedError = maxAcceptedError ?? 4*stdError; // should fail once in A LOT of runs
+            maxAcceptedError = maxAcceptedError ?? 10 * stdError; // should fail once in A LOT of runs
             int b = GetAccuracyInBits(stdError);
 
             var runStopwatch = new Stopwatch();
@@ -447,7 +447,7 @@ namespace CardinalityEstimation.Test
 
             double obsError = Math.Abs(mergedHll.Count()/(double) (expectedCount) - 1.0);
             this.output.WriteLine("StdErr: {0}.  Observed error: {1}", stdError, obsError);
-            Assert.True(obsError <= maxAcceptedError, string.Format("Observed error was over {0}", maxAcceptedError));
+            Assert.True(obsError <= maxAcceptedError, string.Format("Observed error was {0}, over {1}, when adding {2} items", obsError, maxAcceptedError, expectedCount));
             this.output.WriteLine(string.Empty);
         }
 
