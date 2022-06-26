@@ -23,16 +23,15 @@ jobs:
         dotnet-version: 6.0.x
     - name: Restore dependencies
       run: dotnet restore
-    - name: Build Release-Unsigned
+    - name: Build Unsigned
       run: dotnet build -c Release-Unsigned --no-restore
-    - name: Build Release-Signed
+    - name: Build Signed
       run: dotnet build -c Release-Signed --no-restore
     - name: Push Unsigned to NuGet
       run: |
-        pwd
         dotnet pack -c Release-Unsigned -o $PWD/Release-Unsigned/nuget
-        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $PWD/Release-Unsigned/nuget/CardinalityEstimation.*.nupkg
+        for file in Release-Unsigned/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
     - name: Push Signed to NuGet
       run: |
         dotnet pack -c Release-Signed -o $PWD/Release-Signed/nuget
-        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $PWD/Release-Signed/nuget/CardinalityEstimation.*.nupkg
+        for file in Release-Signed/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
