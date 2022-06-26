@@ -50,7 +50,7 @@ namespace CardinalityEstimation
     [Serializable]
     public class CardinalityEstimator : ICardinalityEstimator<string>, ICardinalityEstimator<int>, ICardinalityEstimator<uint>,
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
-        ICardinalityEstimator<byte[]>
+        ICardinalityEstimator<byte[]>, IEquatable<CardinalityEstimator>
     {
         /// <summary> Number of bits for indexing HLL substreams - the number of estimators is 2^bitsPerIndex </summary>
         private readonly int bitsPerIndex;
@@ -91,6 +91,7 @@ namespace CardinalityEstimation
         /// <summary> Hash function used </summary>
         [NonSerialized]
         private IHashFunction hashFunction;
+
         /// <summary>
         ///     C'tor
         /// </summary>
@@ -106,7 +107,36 @@ namespace CardinalityEstimation
         ///     True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         ///     False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
-        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) : this(CreateEmptyState(b, hashFunctionId, useDirectCounting)) {}
+        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true) 
+            : this(CreateEmptyState(b, hashFunctionId, useDirectCounting))
+        {}
+
+        public CardinalityEstimator(CardinalityEstimator other)
+        {
+            this.bitsPerIndex = other.bitsPerIndex;
+            this.bitsForHll = other.bitsForHll;
+            this.m = other.m;
+            this.alphaM = other.alphaM;
+            this.subAlgorithmSelectionThreshold = other.subAlgorithmSelectionThreshold;
+            if (other.lookupDense != null)
+            {
+                this.lookupDense = new byte[other.lookupDense.Length];
+                Array.Copy(other.lookupDense, this.lookupDense, other.lookupDense.Length);
+            }
+
+            if (other.lookupSparse != null)
+            {
+                this.lookupSparse = new Dictionary<ushort, byte>(other.lookupSparse);
+            }
+            this.sparseMaxElements = other.sparseMaxElements;
+            this.isSparse = other.isSparse;
+            if (other.directCount != null)
+            {
+                this.directCount = new HashSet<ulong>(other.directCount, other.directCount.Comparer);
+            }
+            this.hashFunctionId = other.hashFunctionId;
+            this.hashFunction = other.hashFunction;
+        }
 
         /// <summary>
         ///     Creates a CardinalityEstimator with the given <paramref name="state" />
@@ -384,7 +414,7 @@ namespace CardinalityEstimation
             {
                 if (result == null)
                 {
-                    result = new CardinalityEstimator(estimator.bitsPerIndex, estimator.hashFunctionId);
+                    result = new CardinalityEstimator(estimator);
                 }
 
                 result.Merge(estimator);
@@ -609,6 +639,93 @@ namespace CardinalityEstimation
         internal void SetHashFunctionAfterDeserializing(StreamingContext context)
         {
             this.hashFunction = HashFunctionFactory.GetHashFunction(this.hashFunctionId);
+        }
+
+        public bool Equals(CardinalityEstimator other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            if (this.bitsPerIndex != other.bitsPerIndex ||
+                this.bitsForHll != other.bitsForHll ||
+                this.m != other.m ||
+                this.alphaM != other.alphaM ||
+                this.subAlgorithmSelectionThreshold != other.subAlgorithmSelectionThreshold ||
+                this.sparseMaxElements != other.sparseMaxElements ||
+                this.isSparse != other.isSparse ||
+                this.hashFunctionId != other.hashFunctionId ||
+                this.hashFunction != other.hashFunction)
+            {
+                return false;
+            }
+
+            if ((this.lookupDense != null && other.lookupDense == null) ||
+                (this.lookupDense == null && other.lookupDense != null))
+            {
+                return false;
+            }
+
+            if ((this.lookupSparse != null && other.lookupSparse == null) ||
+                (this.lookupSparse == null && other.lookupSparse != null))
+            {
+                return false;
+            }
+
+            if ((this.directCount != null && other.directCount == null) ||
+                (this.directCount == null && other.directCount != null))
+            {
+                return false;
+            }
+
+            if (this.lookupDense != null &&
+                this.lookupDense.Length != other.lookupDense.Length)
+            {
+                return false;
+            }
+            if (this.lookupSparse != null &&
+                this.lookupSparse.Count != other.lookupSparse.Count)
+            {
+                return false;
+            }
+            if (this.directCount != null &&
+                this.directCount.Count != other.directCount.Count)
+            {
+                return false;
+            }
+
+            if (this.lookupDense != null)
+            {
+                for (int i = 0; i < lookupDense.Length; i++)
+                {
+                    if (this.lookupDense[i] != other.lookupDense[i])
+                    {
+                        return false;
+                    }
+                }
+            }
+
+
+            if (this.directCount != null &&
+                !this.directCount.SetEquals(other.directCount))
+            {
+                return false;
+            }
+
+            if (this.lookupSparse != null)
+            {
+                foreach (var kvp in this.lookupSparse)
+                {
+                    if (!other.lookupSparse.TryGetValue(kvp.Key, out var otherValue) ||
+                        otherValue != kvp.Value)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
     }
 }
