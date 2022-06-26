@@ -27,7 +27,6 @@ namespace CardinalityEstimation
 {
     using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Runtime.Serialization;
     using System.Text;
     using Hash;
@@ -486,8 +485,13 @@ namespace CardinalityEstimation
             }
 
             CardinalityEstimator result = null;
-            foreach (CardinalityEstimator estimator in estimators.Where(e => e != null))
+            foreach (CardinalityEstimator estimator in estimators)
             {
+                if (estimator == null)
+                {
+                    continue;
+                }
+
                 if (result == null)
                 {
                     result = new CardinalityEstimator(estimator);
