@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -26,7 +26,7 @@
 namespace CardinalityEstimation.Hash
 {
     /// <summary>
-    ///     Identifies a <i>particular implementation</i> of a hash function. Implemented as a byte to save serialization space
+    /// Identifies a <i>particular implementation</i> of a hash function. Implemented as a byte to save serialization space
     /// </summary>
     public enum HashFunctionId : byte
     {

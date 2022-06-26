@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -33,19 +33,19 @@ namespace CardinalityEstimation
     using Hash;
 
     /// <summary>
-    ///     Efficient serializer for <see cref="CardinalityEstimator" />
+    /// Efficient serializer for <see cref="CardinalityEstimator" />
     /// </summary>
     public class CardinalityEstimatorSerializer
     {
         /// <summary>
-        ///     Highest major version of the serialization format which this serializer can deserialize. A breaking change in the format requires a
-        ///     bump in major version, i.e. version 2.X cannot read 3.Y
+        /// Highest major version of the serialization format which this serializer can deserialize. A breaking change in the format requires a
+        /// bump in major version, i.e. version 2.X cannot read 3.Y
         /// </summary>
         public const ushort DataFormatMajorVersion = 2;
 
         /// <summary>
-        ///     Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, i.e. version 2.2
-        ///     should be able to read version 2.3
+        /// Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, i.e. version 2.2
+        /// should be able to read version 2.3
         /// </summary>
         public const ushort DataFormatMinorVersion = 1;
 
@@ -168,8 +168,8 @@ namespace CardinalityEstimation
 
             int bitsPerIndex = reader.ReadInt32();
             byte flags = reader.ReadByte();
-            bool isSparse = ((flags & 2) == 2);
-            bool isDirectCount = ((flags & 1) == 1);
+            bool isSparse = (flags & 2) == 2;
+            bool isDirectCount = (flags & 1) == 1;
 
             HashSet<ulong> directCount = null;
             IDictionary<ushort, byte> lookupSparse = isSparse ? new Dictionary<ushort, byte>() : null;
@@ -227,7 +227,7 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        ///     Checks that this serializer can deserialize data with the given major and minor version numbers
+        /// Checks that this serializer can deserialize data with the given major and minor version numbers
         /// </summary>
         /// <exception cref="SerializationException">If this serializer cannot read data with the given version numbers</exception>
         private static void AssertDataVersionCanBeRead(int dataFormatMajorVersion, int dataFormatMinorVersion)

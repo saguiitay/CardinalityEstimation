@@ -1,5 +1,5 @@
 // /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -28,14 +28,14 @@ namespace CardinalityEstimation.Hash
     internal interface IHashFunction
     {
         /// <summary>
-        ///     Computes the hash code for the given <paramref name="bytes" />
+        /// Computes the hash code for the given <paramref name="bytes" />
         /// </summary>
         /// <param name="bytes">Bytes to compute the hash for</param>
         /// <returns>The hash</returns>
         ulong GetHashCode(byte[] bytes);
 
         /// <summary>
-        ///     Gets this implementation's HashFunctionId. Each implementation must have a unique ID.
+        /// Gets this implementation's HashFunctionId. Each implementation must have a unique ID.
         /// </summary>
         HashFunctionId HashFunctionId { get; }
     }

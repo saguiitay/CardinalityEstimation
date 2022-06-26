@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -26,28 +26,34 @@
 namespace CardinalityEstimation
 {
     /// <summary>
-    ///     Estimator for the number of unique elements in a set
+    /// Estimator for the number of unique elements in a set
     /// </summary>
     /// <typeparam name="T">The type of elements in the set</typeparam>
     public interface ICardinalityEstimator<in T>
     {
         /// <summary>
-        ///     Adds an element to the counted set.  Elements added multiple times will be counted only once.
+        /// Adds an element to the counted set. Elements added multiple times will be counted only once.
         /// </summary>
         /// <param name="element">The element to add</param>
-        /// <returns>True if the state of the estimator has changed, false otherwise</returns>
+        /// <returns>
+        /// True if the state of the estimator has changed, false otherwise
+        /// </returns>
         bool Add(T element);
 
         /// <summary>
-        ///     Returns the estimated number of unique elements in the counted set
+        /// Returns the estimated number of unique elements in the counted set
         /// </summary>
-        /// <returns>The estimated count of unique elements</returns>
+        /// <returns>
+        /// The estimated count of unique elements
+        /// </returns>
         ulong Count();
 
         /// <summary>
-        ///     Gets the number of times elements were added (including duplicates)
+        /// Gets the number of times elements were added (including duplicates)
         /// </summary>
-        /// <returns>The number of times <see cref="Add"/> was called</returns>
+        /// <returns>
+        /// The number of times <see cref="Add"/> was called
+        /// </returns>
         ulong CountAdditions { get; }
     }
 }

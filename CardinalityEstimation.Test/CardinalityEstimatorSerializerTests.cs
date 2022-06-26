@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -45,15 +45,15 @@ namespace CardinalityEstimation.Test
 
         public CardinalityEstimatorSerializerTests(ITestOutputHelper outputHelper)
         {
-            this.output = outputHelper;
-            this.stopwatch = new Stopwatch();
-            this.stopwatch.Start();
+            output = outputHelper;
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
         }
 
         public void Dispose()
         {
-            this.stopwatch.Stop();
-            this.output.WriteLine("Total test time: {0}", this.stopwatch.Elapsed);
+            stopwatch.Stop();
+            output.WriteLine("Total test time: {0}", stopwatch.Elapsed);
         }
 
         [Fact]
@@ -113,13 +113,13 @@ namespace CardinalityEstimation.Test
             // 4 bytes for the number of elements in lookupSparse
             // 2+1 bytes for each element (ulong) in lookupSparse
             // 8 bytes for CountAdded
-            Assert.Equal(22 + 3*data.LookupSparse.Count, results.Length);
+            Assert.Equal(22 + (3 *data.LookupSparse.Count), results.Length);
 
             Assert.Equal((byte)HashFunctionId.Murmur3, results.Skip(4).Take(1).First());
             Assert.Equal(14, BitConverter.ToInt32(results.Skip(5).Take(4).ToArray(), 0)); // Bits in Index = 14
             Assert.Equal(2, results[9]); // IsSparse = true AND IsDirectCount = false
             Assert.Equal(data.LookupSparse.Count, BitConverter.ToInt32(results.Skip(10).Take(4).ToArray(), 0));
-            Assert.Equal(1000UL, BitConverter.ToUInt64(results.Skip(14 + 3*data.LookupSparse.Count).Take(8).ToArray(), 0)); // CountAdditions = 1000
+            Assert.Equal(1000UL, BitConverter.ToUInt64(results.Skip(14 + (3 *data.LookupSparse.Count)).Take(8).ToArray(), 0)); // CountAdditions = 1000
         }
 
         [Fact]
@@ -127,7 +127,6 @@ namespace CardinalityEstimation.Test
         {
             TestSerializerCardinality100000Parameterized(false);
         }
-
 
         [Fact]
         public void TestSerializer()
@@ -165,9 +164,7 @@ namespace CardinalityEstimation.Test
                 var runs = 10;
                 for (var i = 0; i < runs; i++)
                 {
-                    int customSize;
-                    int defaultSize;
-                    TestSerializerCreatesSmallerData(cardinality, out customSize, out defaultSize);
+                    TestSerializerCreatesSmallerData(cardinality, out int customSize, out int defaultSize);
 
                     customTotalSize += customSize;
                     defaultTotalSize += defaultSize;
@@ -175,14 +172,14 @@ namespace CardinalityEstimation.Test
 
                 long customAverageSize = customTotalSize/runs, defaultAverageSize = defaultTotalSize/runs;
 
-                this.output.WriteLine("{0} | {1} | {2} | {3:P}", cardinality, customAverageSize, defaultAverageSize,
+                output.WriteLine("{0} | {1} | {2} | {3:P}", cardinality, customAverageSize, defaultAverageSize,
                     1 - ((float) customAverageSize/defaultAverageSize));
             }
         }
 
         /// <summary>
-        ///     If this method fails, it's possible that the serialization format has changed and
-        ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
+        /// If this method fails, it's possible that the serialization format has changed and
+        /// <see cref="CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
         /// </summary>
         [Fact]
         public void SerializerCanDeserializeVersion1Point0()
@@ -245,8 +242,8 @@ namespace CardinalityEstimation.Test
         }
 
         /// <summary>
-        ///     If this method fails, it's possible that the serialization format has changed and
-        ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
+        /// If this method fails, it's possible that the serialization format has changed and
+        /// <see cref="CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
         /// </summary>
         [Fact]
         public void SerializerCanDeserializeVersion2Point0()
@@ -263,8 +260,8 @@ namespace CardinalityEstimation.Test
         }
 
         /// <summary>
-        ///     If this method fails, it's possible that the serialization format has changed and
-        ///     <see cref="CardinalityEstimation.CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
+        /// If this method fails, it's possible that the serialization format has changed and
+        /// <see cref="CardinalityEstimatorSerializer.DataFormatMajorVersion" /> should be incremented.
         /// </summary>
         [Fact]
         public void SerializerCanDeserializeVersion2Point1()
@@ -388,11 +385,9 @@ namespace CardinalityEstimation.Test
             }
 
             using (var memoryStream = new MemoryStream(results))
+            using (var br = new BinaryReader(memoryStream))
             {
-                using (var br = new BinaryReader(memoryStream))
-                {
-                    hll2 = serializer.Read(br);
-                }
+                hll2 = serializer.Read(br);
             }
 
             CompareHLL(hll, hll2);

@@ -1,5 +1,5 @@
 ﻿// /*  
-//     See https://github.com/Microsoft/CardinalityEstimation.
+//     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
 //     Copyright (c) 2015 Microsoft
@@ -23,35 +23,33 @@
 //     SOFTWARE.
 // */
 
+using CardinalityEstimation.Hash;
+using Xunit;
+
 namespace CardinalityEstimation.Test.Hash
 {
-    using System;
-    using CardinalityEstimation.Hash;
-    using Xunit;
-
-    
     public class Murmur3Tests
     {
-        private Murmur3 sut;
+        private readonly Murmur3 murmur3;
 
         public Murmur3Tests()
         {
-            this.sut = new Murmur3();
+            murmur3 = new Murmur3();
         }
 
         [Fact]
         public void Murmur3ProducesRightValues()
         {
             // Check some precomputed values of Murmur3
-            Assert.Equal(0UL, this.sut.GetHashCode(new byte[0]));
-            Assert.Equal(18344466521425217038UL, this.sut.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
-            Assert.Equal(4889297221962843713UL, this.sut.GetHashCode(new byte[] { 255, 255, 255, 255 }));
+            Assert.Equal(0UL, murmur3.GetHashCode(new byte[0]));
+            Assert.Equal(18344466521425217038UL, murmur3.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
+            Assert.Equal(4889297221962843713UL, murmur3.GetHashCode(new byte[] { 255, 255, 255, 255 }));
         }
 
         [Fact]
         public void Murmur3HasRightId()
         {
-            Assert.True((byte)this.sut.HashFunctionId == 1, "When serialized to a byte, Murmur3's ID should be 1");
+            Assert.True((byte)murmur3.HashFunctionId == 1, "When serialized to a byte, Murmur3's ID should be 1");
         }
     }
 }
