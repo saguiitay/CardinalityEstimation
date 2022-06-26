@@ -29,9 +29,10 @@ jobs:
       run: dotnet build -c Release-Signed --no-restore
     - name: Push Unsigned to NuGet
       run: |
+        pwd
         dotnet pack -c Release-Unsigned -o $PWD/nuget
-        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} .\CardinalityEstimation\bin\Release-Unsigned\CardinalityEstimation.*.nupkg
+        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} .\CardinalityEstimation\CardinalityEstimation\bin\Release-Unsigned\CardinalityEstimation.*.nupkg
     - name: Push Signed to NuGet
       run: |
         dotnet pack -c Release-Signed -o $PWD/nuget
-        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} .\CardinalityEstimation\bin\Release-Signed\CardinalityEstimation.*.nupkg
+        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} .\CardinalityEstimation\CardinalityEstimation\bin\Release-Signed\CardinalityEstimation.*.nupkg
