@@ -31,7 +31,7 @@ jobs:
       run: |
         pwd
         dotnet pack -c Release-Unsigned -o $PWD/Release-Unsigned/nuget
-        dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $PWD/Release-Unsigned/nuget/CardinalityEstimation.*.nupkg
+        for file in $PWD/Release-Unsigned/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
     - name: Push Signed to NuGet
       run: |
         dotnet pack -c Release-Signed -o $PWD/Release-Signed/nuget
