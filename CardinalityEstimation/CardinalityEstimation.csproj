@@ -9,7 +9,6 @@
         <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
         <Authors>Oron Navon;Sagui Itay</Authors>
         <Company></Company>
-        <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/saguiitay/CardinalityEstimation</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -42,7 +41,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\LICENSE.md" Pack="true" PackagePath="$(PackageLicenseFile)"/>
+        <None Include="..\LICENSE.md" Pack="true" PackagePath="LICENSE.md"/>
         <None Include="..\README.md" Pack="true" PackagePath="$(PackageReadmeFile)"/>
     </ItemGroup>
 </Project>
