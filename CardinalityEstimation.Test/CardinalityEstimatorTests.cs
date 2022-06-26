@@ -350,6 +350,48 @@ namespace CardinalityEstimation.Test
             Assert.Equal(stream1.Length, stream2.Length);
         }
 
+        [Fact()]
+        public void CopyConstructorCorrectlyCopiesValues()
+        {
+            for (int b = 4; b < 16; b++)
+            {
+                for (int cardinality = 1; cardinality < 10_000; cardinality *= 2)
+                {
+                    var hll = new CardinalityEstimator(b, useDirectCounting: true);
+
+                    var nextMember = new byte[ElementSizeInBytes];
+                    for (var i = 0; i < cardinality; i++)
+                    {
+                        Rand.NextBytes(nextMember);
+                        hll.Add(nextMember);
+                    }
+
+                    var hll2 = new CardinalityEstimator(hll);
+
+                    Assert.Equal(hll, hll2);
+                }
+            }
+
+            for (int b = 4; b < 16; b++)
+            {
+                for (int cardinality = 1; cardinality < 10_000; cardinality *= 2)
+                {
+                    var hll = new CardinalityEstimator(b, useDirectCounting: false);
+
+                    var nextMember = new byte[ElementSizeInBytes];
+                    for (var i = 0; i < cardinality; i++)
+                    {
+                        Rand.NextBytes(nextMember);
+                        hll.Add(nextMember);
+                    }
+
+                    var hll2 = new CardinalityEstimator(hll);
+
+                    Assert.Equal(hll, hll2);
+                }
+            }
+        }
+
 
 
         /// <summary>
