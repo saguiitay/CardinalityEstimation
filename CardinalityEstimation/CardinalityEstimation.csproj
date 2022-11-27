@@ -28,6 +28,7 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' OR '$(Configuration)' == 'Release-Unsigned'">
+        <DebugType>pdbonly</DebugType>
         <Optimize>True</Optimize>
     </PropertyGroup>
 
@@ -45,7 +46,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\LICENSE.md" Pack="true" PackagePath="LICENSE.md"/>
-        <None Include="..\README.md" Pack="true" PackagePath="$(PackageReadmeFile)"/>
+        <None Include="..\LICENSE.md" Pack="true" PackagePath="LICENSE.md" />
+        <None Include="..\README.md" Pack="true" PackagePath="$(PackageReadmeFile)" />
     </ItemGroup>
 </Project>
