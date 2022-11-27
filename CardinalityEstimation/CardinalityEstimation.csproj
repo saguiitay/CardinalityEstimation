@@ -14,15 +14,9 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Copyright>Copyright © Sagui Itay 2022</Copyright>
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
-        <PackageReleaseNotes>
-            Remove usage of LINQ (#37)
-            Cosmetic changes (#36)
-            Changed Add to return bool (#33)
-            Less sensitive UTs (#35)
-            Add copy CTOR to CardinalityEstimator and implement IEquatable (#34)
-        </PackageReleaseNotes>
-        <AssemblyVersion>1.11.0.0</AssemblyVersion>
-        <FileVersion>1.11.0.0</FileVersion>
+        <PackageReleaseNotes>Removed DebuggableAttribute in released nugets</PackageReleaseNotes>
+        <AssemblyVersion>1.11.1.0</AssemblyVersion>
+        <FileVersion>1.11.1.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
