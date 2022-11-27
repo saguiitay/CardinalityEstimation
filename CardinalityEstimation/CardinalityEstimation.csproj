@@ -27,6 +27,10 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' OR '$(Configuration)' == 'Release-Unsigned'">
+        <Optimize>True</Optimize>
+    </PropertyGroup>
+
     <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
         <AssemblyOriginatorKeyFile>cardinalityestimation.snk</AssemblyOriginatorKeyFile>
         <SignAssembly>true</SignAssembly>
