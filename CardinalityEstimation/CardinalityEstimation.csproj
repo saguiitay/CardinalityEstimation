@@ -5,7 +5,7 @@
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
         <PackageId Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
-        <Version>1.11</Version>
+        <Version>1.11.1</Version>
         <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
         <Authors>Oron Navon;Sagui Itay</Authors>
         <Company></Company>
