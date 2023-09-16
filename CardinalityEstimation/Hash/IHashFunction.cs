@@ -33,10 +33,5 @@ namespace CardinalityEstimation.Hash
         /// <param name="bytes">Bytes to compute the hash for</param>
         /// <returns>The hash</returns>
         ulong GetHashCode(byte[] bytes);
-
-        /// <summary>
-        /// Gets this implementation's HashFunctionId. Each implementation must have a unique ID.
-        /// </summary>
-        HashFunctionId HashFunctionId { get; }
     }
 }
