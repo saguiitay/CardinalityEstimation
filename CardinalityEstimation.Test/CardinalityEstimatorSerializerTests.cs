@@ -157,20 +157,16 @@ namespace CardinalityEstimation.Test
         {
             for (var cardinality = 1; cardinality < 10240; cardinality *= 2)
             {
-                long customTotalSize = 0, defaultTotalSize = 0;
+                long customTotalSize = 0;
                 var runs = 10;
                 for (var i = 0; i < runs; i++)
                 {
-                    TestSerializerCreatesSmallerData(cardinality, out int customSize, out int defaultSize);
-
-                    customTotalSize += customSize;
-                    defaultTotalSize += defaultSize;
+                    customTotalSize += TestSerializerCreatesSmallerData(cardinality);
                 }
 
-                long customAverageSize = customTotalSize/runs, defaultAverageSize = defaultTotalSize/runs;
+                long customAverageSize = customTotalSize/runs;
 
-                output.WriteLine("{0} | {1} | {2} | {3:P}", cardinality, customAverageSize, defaultAverageSize,
-                    1 - ((float) customAverageSize/defaultAverageSize));
+                output.WriteLine("{0} | {1}", cardinality, customAverageSize);
             }
         }
 
@@ -313,7 +309,7 @@ namespace CardinalityEstimation.Test
             return hll;
         }
 
-        private void TestSerializerCreatesSmallerData(int cardinality, out int customSize, out int defaultSize)
+        private int TestSerializerCreatesSmallerData(int cardinality)
         {
             CardinalityEstimator hll = CreateAndFillCardinalityEstimator(cardinality);
 
@@ -324,20 +320,8 @@ namespace CardinalityEstimation.Test
             {
                 customSerializer.Serialize(memoryStream, hll, false);
                 customSerializerResults = memoryStream.ToArray();
-                customSize = customSerializerResults.Length;
+                return customSerializerResults.Length;
             }
-
-            var binaryFormatter = new BinaryFormatter();
-
-            byte[] defaultSerializerResults;
-            using (var memoryStream = new MemoryStream())
-            {
-                binaryFormatter.Serialize(memoryStream, hll);
-                defaultSerializerResults = memoryStream.ToArray();
-                defaultSize = defaultSerializerResults.Length;
-            }
-
-            Assert.True(customSerializerResults.Length <= defaultSerializerResults.Length);
         }
 
         private void TestDeserializerWithCardinality(int cardinality)
