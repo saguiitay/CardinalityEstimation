@@ -23,14 +23,14 @@ jobs:
         dotnet-version: 6.0.x
     - name: Restore dependencies
       run: dotnet restore
-    - name: Build Unsigned
-      run: dotnet build -c Release-Unsigned --no-restore
+    - name: Build
+      run: dotnet build -c Release --no-restore
     - name: Build Signed
       run: dotnet build -c Release-Signed --no-restore
-    - name: Push Unsigned to NuGet
+    - name: Push to NuGet
       run: |
-        dotnet pack -c Release-Unsigned -o $PWD/Release-Unsigned/nuget
-        for file in Release-Unsigned/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
+        dotnet pack -c Release -o $PWD/Release/nuget
+        for file in Release/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
     - name: Push Signed to NuGet
       run: |
         dotnet pack -c Release-Signed -o $PWD/Release-Signed/nuget

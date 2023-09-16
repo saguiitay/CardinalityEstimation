@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2047
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34112.27
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation", "CardinalityEstimation\CardinalityEstimation.csproj", "{214AB5A6-DD68-432C-893A-0F6CC70D2005}"
 EndProject
@@ -12,7 +12,6 @@ Global
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 		Release-Signed|Any CPU = Release-Signed|Any CPU
-		Release-Unsigned|Any CPU = Release-Unsigned|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{214AB5A6-DD68-432C-893A-0F6CC70D2005}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -21,8 +20,6 @@ Global
 		{214AB5A6-DD68-432C-893A-0F6CC70D2005}.Release|Any CPU.Build.0 = Release|Any CPU
 		{214AB5A6-DD68-432C-893A-0F6CC70D2005}.Release-Signed|Any CPU.ActiveCfg = Release-Signed|Any CPU
 		{214AB5A6-DD68-432C-893A-0F6CC70D2005}.Release-Signed|Any CPU.Build.0 = Release-Signed|Any CPU
-		{214AB5A6-DD68-432C-893A-0F6CC70D2005}.Release-Unsigned|Any CPU.ActiveCfg = Release-Unsigned|Any CPU
-		{214AB5A6-DD68-432C-893A-0F6CC70D2005}.Release-Unsigned|Any CPU.Build.0 = Release-Unsigned|Any CPU
 		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Release|Any CPU.ActiveCfg = Release|Any CPU

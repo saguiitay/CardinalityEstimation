@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFrameworks>net6.0;netstandard2.0;netcoreapp3.1</TargetFrameworks>
-        <Configurations>Debug;Release;Release-Signed;Release-Unsigned</Configurations>
+        <Configurations>Debug;Release;Release-Signed</Configurations>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
-        <PackageId Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
+        <PackageId Condition=" '$(Configuration)' == 'Release' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
         <Version>1.11.1</Version>
         <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
         <Authors>Oron Navon;Sagui Itay</Authors>
@@ -21,7 +21,7 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' OR '$(Configuration)' == 'Release-Unsigned'">
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release-Signed' OR '$(Configuration)' == 'Release'">
         <DebugType>pdbonly</DebugType>
         <Optimize>True</Optimize>
     </PropertyGroup>
@@ -35,7 +35,7 @@
         <PackageReference Include="murmurhash-signed" Version="1.0.3" />
     </ItemGroup>
 
-    <ItemGroup Condition=" '$(Configuration)' == 'Release-Unsigned' OR '$(Configuration)' == 'Debug' ">
+    <ItemGroup Condition=" '$(Configuration)' == 'Release' OR '$(Configuration)' == 'Debug' ">
         <PackageReference Include="murmurhash" Version="1.0.3" />
     </ItemGroup>
 
