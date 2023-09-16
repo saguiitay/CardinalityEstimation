@@ -41,7 +41,7 @@ namespace CardinalityEstimation
         /// Highest major version of the serialization format which this serializer can deserialize. A breaking change in the format requires a
         /// bump in major version, i.e. version 2.X cannot read 3.Y
         /// </summary>
-        public const ushort DataFormatMajorVersion = 2;
+        public const ushort DataFormatMajorVersion = 3;
 
         /// <summary>
         /// Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, i.e. version 2.2
@@ -85,7 +85,6 @@ namespace CardinalityEstimation
 
             CardinalityEstimatorState data = cardinalityEstimator.GetState();
 
-            writer.Write((byte)data.HashFunctionId);
             writer.Write(data.BitsPerIndex);
             writer.Write((byte)(((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
             if (data.DirectCount != null)
@@ -122,23 +121,13 @@ namespace CardinalityEstimation
         /// Deserialize a <see cref="CardinalityEstimator" /> from the given <paramref name="stream" />
         /// </summary>
         /// <param name="stream">The stream.</param>
-        /// <returns>A new CardinalityEstimator.</returns>
-        public CardinalityEstimator Deserialize(Stream stream)
-        {
-            return Deserialize(stream, false);
-        }
-
-        /// <summary>
-        /// Deserialize a <see cref="CardinalityEstimator" /> from the given <paramref name="stream" />
-        /// </summary>
-        /// <param name="stream">The stream.</param>
         /// <param name="leaveOpen">if set to <see langword="true" /> leave the stream open after deserialization.</param>
         /// <returns>A new CardinalityEstimator.</returns>
-        public CardinalityEstimator Deserialize(Stream stream, bool leaveOpen)
+        public CardinalityEstimator Deserialize(Stream stream, GetHashCodeDelegate hashFunction = null, bool leaveOpen = false)
         {
             using (var br = new BinaryReader(stream, Encoding.UTF8, leaveOpen))
             {
-                return Read(br);
+                return Read(br, hashFunction);
             }
         }
 
@@ -147,23 +136,31 @@ namespace CardinalityEstimation
         /// </summary>
         /// <param name="reader">The reader</param>
         /// <returns>An instance of <see cref="CardinalityEstimator" /></returns>
-        public CardinalityEstimator Read(BinaryReader reader)
+        public CardinalityEstimator Read(BinaryReader reader, GetHashCodeDelegate hashFunction = null)
         {
             int dataFormatMajorVersion = reader.ReadUInt16();
             int dataFormatMinorVersion = reader.ReadUInt16();
 
             AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
 
-            HashFunctionId hashFunctionId;
-            if (dataFormatMajorVersion >= 2)
+            byte hashFunctionId;
+            if (dataFormatMajorVersion >= 3)
+            {
+            }
+            else if (dataFormatMajorVersion >= 2)
             {
                 // Starting with version 2.0, the serializer writes the hash function ID
-                hashFunctionId = (HashFunctionId)reader.ReadByte();
+                hashFunctionId = reader.ReadByte();
+                if (hashFunction == null)
+                {
+                    hashFunction = (hashFunctionId == 1) ? (GetHashCodeDelegate)Murmur3.GetHashCode : (GetHashCodeDelegate)Fnv1A.GetHashCode;
+                }
             }
             else
             {
                 // Versions before 2.0 all used FNV-1a
-                hashFunctionId = HashFunctionId.Fnv1A;
+                hashFunctionId = 0;
+                hashFunction = Fnv1A.GetHashCode;
             }
 
             int bitsPerIndex = reader.ReadInt32();
@@ -212,7 +209,6 @@ namespace CardinalityEstimation
 
             var data = new CardinalityEstimatorState
             {
-                HashFunctionId = hashFunctionId,
                 BitsPerIndex = bitsPerIndex,
                 DirectCount = directCount,
                 IsSparse = isSparse,
@@ -221,7 +217,7 @@ namespace CardinalityEstimation
                 CountAdditions = countAdditions,
             };
 
-            var result = new CardinalityEstimator(data);
+            var result = new CardinalityEstimator(hashFunction, data);
 
             return result;
         }

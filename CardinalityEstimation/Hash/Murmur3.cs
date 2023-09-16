@@ -29,11 +29,11 @@ namespace CardinalityEstimation.Hash
     using System.Collections.Concurrent;
     using Murmur;
 
-    internal class Murmur3 : IHashFunction
+    internal class Murmur3
     {
         private static readonly ConcurrentStack<Murmur128> pool = new ConcurrentStack<Murmur128>();
 
-        public ulong GetHashCode(byte[] bytes)
+        public static ulong GetHashCode(byte[] bytes)
         {
             Murmur128 murmurHash;
             if (!pool.TryPop(out murmurHash))
@@ -44,11 +44,6 @@ namespace CardinalityEstimation.Hash
             byte[] result = murmurHash.ComputeHash(bytes);
             pool.Push(murmurHash);
             return BitConverter.ToUInt64(result, 0);
-        }
-
-        public HashFunctionId HashFunctionId
-        {
-            get { return HashFunctionId.Murmur3; }
         }
     }
 }

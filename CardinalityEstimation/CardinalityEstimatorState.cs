@@ -33,7 +33,6 @@ namespace CardinalityEstimation
     /// </summary>
     internal class CardinalityEstimatorState
     {
-        public HashFunctionId HashFunctionId;
         public int BitsPerIndex;
         public HashSet<ulong> DirectCount;
         public bool IsSparse;

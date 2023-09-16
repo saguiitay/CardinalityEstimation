@@ -28,7 +28,7 @@ namespace CardinalityEstimation.Hash
     /// <summary>
     /// Helper class to computes the 64-bit FNV-1a hash of byte arrays, <see cref="GetHashCode" />
     /// </summary>
-    internal class Fnv1A : IHashFunction
+    internal class Fnv1A
     {
         /// <summary>
         /// Computes the 64-bit FNV-1a hash of the given <paramref name="bytes" />, see
@@ -37,7 +37,7 @@ namespace CardinalityEstimation.Hash
         /// </summary>
         /// <param name="bytes">Text to compute the hash for</param>
         /// <returns>The 64-bit fnv1a hash</returns>
-        public ulong GetHashCode(byte[] bytes)
+        public static ulong GetHashCode(byte[] bytes)
         {
             const ulong fnv1A64Init = 14695981039346656037;
             const ulong fnv64Prime = 0x100000001b3;
@@ -52,11 +52,6 @@ namespace CardinalityEstimation.Hash
             }
 
             return hash;
-        }
-
-        public HashFunctionId HashFunctionId
-        {
-            get { return HashFunctionId.Fnv1A; }
         }
     }
 }

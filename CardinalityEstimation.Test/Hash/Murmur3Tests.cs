@@ -30,26 +30,13 @@ namespace CardinalityEstimation.Test.Hash
 {
     public class Murmur3Tests
     {
-        private readonly Murmur3 murmur3;
-
-        public Murmur3Tests()
-        {
-            murmur3 = new Murmur3();
-        }
-
         [Fact]
         public void Murmur3ProducesRightValues()
         {
             // Check some precomputed values of Murmur3
-            Assert.Equal(0UL, murmur3.GetHashCode(new byte[0]));
-            Assert.Equal(18344466521425217038UL, murmur3.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
-            Assert.Equal(4889297221962843713UL, murmur3.GetHashCode(new byte[] { 255, 255, 255, 255 }));
-        }
-
-        [Fact]
-        public void Murmur3HasRightId()
-        {
-            Assert.True((byte)murmur3.HashFunctionId == 1, "When serialized to a byte, Murmur3's ID should be 1");
+            Assert.Equal(0UL, Murmur3.GetHashCode(new byte[0]));
+            Assert.Equal(18344466521425217038UL, Murmur3.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
+            Assert.Equal(4889297221962843713UL, Murmur3.GetHashCode(new byte[] { 255, 255, 255, 255 }));
         }
     }
 }

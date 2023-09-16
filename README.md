@@ -1,4 +1,5 @@
 # CardinalityEstimation
+
 HyperLogLog-based set cardinality estimation library
 
 This library estimates the number of unique elements in a set, in a quick and memory-efficient manner.  It's based on the following:
@@ -9,8 +10,10 @@ This library estimates the number of unique elements in a set, in a quick and me
 The accuracy/memory usage are user-selectable.  Typically, a cardinality estimator will give a perfect estimate of small cardinalities (up to 100 unique elements), and 97% accuracy or better (usually much better) for any cardinality up to near 2^64, while consuming several KB of memory (no more than 16KB).
 
 ## Usage
+
 Usage is very simple:
-```
+
+```csharp
 ICardinalityEstimator<string> estimator = new CardinalityEstimator();
 
 estimator.Add("Alice");
@@ -22,10 +25,17 @@ ulong numberOfuniqueElements = estimator.Count(); // will be 3
 ```
 
 ## Nuget Package
-This code is available as the Nuget package [`CardinalityEstimation`](https://www.nuget.org/packages/CardinalityEstimation/).  To install, run the following command in the Package Manager Console:
-```
+
+This code is available as the Nuget package [CardinalityEstimation](https://www.nuget.org/packages/CardinalityEstimation/). 
+
+To install, run the following command in the Package Manager Console:
+
+```powershell
 Install-Package CardinalityEstimation
 ```
 
-### Keeping things friendly
+## Release Notes
+
+## Keeping things friendly
+
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.

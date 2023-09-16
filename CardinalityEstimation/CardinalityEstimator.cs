@@ -27,10 +27,11 @@ namespace CardinalityEstimation
 {
     using System;
     using System.Collections.Generic;
-    using System.Runtime.Serialization;
     using System.Text;
     using Hash;
 
+    public delegate ulong GetHashCodeDelegate(byte[] bytes);
+    
     /// <summary>
     /// A cardinality estimator for sets of some common types, which uses a HashSet for small cardinalities,
     /// LinearCounting for medium-range cardinalities and HyperLogLog for large cardinalities.  Based off of the following:
@@ -43,7 +44,7 @@ namespace CardinalityEstimation
     /// <remarks>
     /// 1. This implementation is not thread-safe
     /// 2. By default, it uses the 128-bit Murmur3 hash function, <see cref="http://github.com/darrenkopp/murmurhash-net"/>.
-    ///    For legacy support, the c'tor also allows using the 64-bit Fowler/Noll/Vo-0 FNV-1a hash function, <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
+    ///    For legacy support, the CTOR also allows using the 64-bit Fowler/Noll/Vo-0 FNV-1a hash function, <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
     /// 3. Estimation is perfect up to 100 elements, then approximate
     /// </remarks>
     [Serializable]
@@ -51,6 +52,7 @@ namespace CardinalityEstimation
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
         ICardinalityEstimator<byte[]>, IEquatable<CardinalityEstimator>
     {
+
         #region Private consts
         /// <summary>
         /// Max number of elements to hold in the direct representation
@@ -60,7 +62,7 @@ namespace CardinalityEstimation
 
         #region Private fields
         /// <summary>
-        /// Number of bits for indexing HLL substreams - the number of estimators is 2^bitsPerIndex
+        /// Number of bits for indexing HLL sub-streams - the number of estimators is 2^bitsPerIndex
         /// </summary>
         private readonly int bitsPerIndex;
 
@@ -110,15 +112,10 @@ namespace CardinalityEstimation
         private HashSet<ulong> directCount;
 
         /// <summary>
-        /// ID of hash function used
-        /// </summary>
-        private readonly HashFunctionId hashFunctionId;
-
-        /// <summary>
         /// Hash function used
         /// </summary>
         [NonSerialized]
-        private IHashFunction hashFunction;
+        private GetHashCodeDelegate hashFunction;
         #endregion
 
         #region Constructors
@@ -137,9 +134,9 @@ namespace CardinalityEstimation
         /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
-        public CardinalityEstimator(int b = 14, HashFunctionId hashFunctionId = HashFunctionId.Murmur3, bool useDirectCounting = true)
-            : this(CreateEmptyState(b, hashFunctionId, useDirectCounting))
-        {}
+        public CardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
+            : this(hashFunction, CreateEmptyState(b, useDirectCounting))
+        { }
 
         /// <summary>
         /// Copy constructor
@@ -167,14 +164,13 @@ namespace CardinalityEstimation
             {
                 directCount = new HashSet<ulong>(other.directCount, other.directCount.Comparer);
             }
-            hashFunctionId = other.hashFunctionId;
             hashFunction = other.hashFunction;
         }
 
         /// <summary>
         /// Creates a CardinalityEstimator with the given <paramref name="state" />
         /// </summary>
-        internal CardinalityEstimator(CardinalityEstimatorState state)
+        internal CardinalityEstimator(GetHashCodeDelegate hashFunction, CardinalityEstimatorState state)
         {
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = 64 - bitsPerIndex;
@@ -183,8 +179,7 @@ namespace CardinalityEstimation
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             // Init the hash function
-            hashFunctionId = state.HashFunctionId;
-            hashFunction = HashFunctionFactory.GetHashFunction(hashFunctionId);
+            this.hashFunction = hashFunction ?? Murmur3.GetHashCode;
 
             // Init the direct count
             directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
@@ -229,10 +224,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="string"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(string element)
         {
-            ulong hashCode = GetHashCode(Encoding.UTF8.GetBytes(element));
+            ulong hashCode = hashFunction(Encoding.UTF8.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -241,10 +236,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="int"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(int element)
         {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
+            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -253,10 +248,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="uint"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(uint element)
         {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
+            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -265,10 +260,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="long"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(long element)
         {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
+            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -277,10 +272,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="ulong"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(ulong element)
         {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
+            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -289,10 +284,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="float"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(float element)
         {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
+            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -301,10 +296,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="double"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(double element)
         {
-            ulong hashCode = GetHashCode(BitConverter.GetBytes(element));
+            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -313,10 +308,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="byte[]"/>
         /// </summary>
-        /// <returns>True is estmator's state was modified. False otherwise</returns>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
         public bool Add(byte[] element)
         {
-            ulong hashCode = GetHashCode(element);
+            ulong hashCode = hashFunction(element);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -513,7 +508,6 @@ namespace CardinalityEstimation
                 IsSparse = isSparse,
                 LookupDense = lookupDense,
                 LookupSparse = lookupSparse,
-                HashFunctionId = hashFunctionId,
                 CountAdditions = CountAdditions,
             };
         }
@@ -527,7 +521,7 @@ namespace CardinalityEstimation
         /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
-        private static CardinalityEstimatorState CreateEmptyState(int b, HashFunctionId hashFunctionId, bool useDirectCount)
+        private static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount)
         {
             if (b < 4 || b > 16)
             {
@@ -541,7 +535,6 @@ namespace CardinalityEstimation
                 IsSparse = true,
                 LookupSparse = new Dictionary<ushort, byte>(),
                 LookupDense = null,
-                HashFunctionId = hashFunctionId,
                 CountAdditions = 0,
             };
         }
@@ -650,16 +643,6 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Computes the hash of the given <paramref name="bytes" />
-        /// </summary>
-        /// <param name="bytes">data to compute the hash for</param>
-        /// <returns>The hash code of <paramref name="bytes"/></returns>
-        private ulong GetHashCode(byte[] bytes)
-        {
-            return hashFunction.GetHashCode(bytes);
-        }
-
-        /// <summary>
         /// Returns the number of leading zeroes in the <paramref name="bitsToCount" /> highest bits of <paramref name="hash" />, plus one
         /// </summary>
         /// <param name="hash">Hash value to calculate the statistic on</param>
@@ -701,12 +684,6 @@ namespace CardinalityEstimation
             lookupSparse = null;
             isSparse = false;
         }
-
-        [OnDeserialized]
-        internal void SetHashFunctionAfterDeserializing(StreamingContext context)
-        {
-            hashFunction = HashFunctionFactory.GetHashFunction(hashFunctionId);
-        }
         #endregion
 
         #region IEquatable implementation
@@ -724,7 +701,6 @@ namespace CardinalityEstimation
                 subAlgorithmSelectionThreshold != other.subAlgorithmSelectionThreshold ||
                 sparseMaxElements != other.sparseMaxElements ||
                 isSparse != other.isSparse ||
-                hashFunctionId != other.hashFunctionId ||
                 hashFunction != other.hashFunction)
             {
                 return false;

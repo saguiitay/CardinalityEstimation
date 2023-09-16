@@ -30,7 +30,6 @@ namespace CardinalityEstimation.Test
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Runtime.Serialization.Formatters.Binary;
 
     using CardinalityEstimation.Hash;
 
@@ -207,7 +206,7 @@ namespace CardinalityEstimation.Test
             var estimators = new CardinalityEstimator[10];
             for (var i = 0; i < estimators.Length; i++)
             {
-                estimators[i] = new CardinalityEstimator(expectedBitsPerIndex);
+                estimators[i] = new CardinalityEstimator(b: expectedBitsPerIndex);
                 estimators[i].Add(Rand.Next());
             }
 
@@ -228,32 +227,10 @@ namespace CardinalityEstimation.Test
         public void StaticMergeHandlesNullElements()
         {
             const int expectedBitsPerIndex = 11;
-            var estimators = new List<CardinalityEstimator> { null, new CardinalityEstimator(expectedBitsPerIndex, HashFunctionId.Fnv1A), null };
+            var estimators = new List<CardinalityEstimator> { null, new CardinalityEstimator(Fnv1A.GetHashCode, expectedBitsPerIndex), null };
             CardinalityEstimator result = CardinalityEstimator.Merge(estimators);
             Assert.NotNull(result);
             Assert.Equal(expectedBitsPerIndex, result.GetState().BitsPerIndex);
-        }
-
-        [Fact]
-        public void EstimatorWorksAfterDeserialization()
-        {
-            ICardinalityEstimator<int> original = new CardinalityEstimator();
-            original.Add(5);
-            original.Add(7);
-            Assert.Equal(2UL, original.Count());
-
-            var binaryFormatter = new BinaryFormatter();
-            using (var memoryStream = new MemoryStream())
-            {
-                binaryFormatter.Serialize(memoryStream, original);
-                memoryStream.Seek(0, SeekOrigin.Begin);
-                CardinalityEstimator copy = (CardinalityEstimator)binaryFormatter.Deserialize(memoryStream);
-
-                Assert.Equal(2UL, copy.Count());
-                copy.Add(5);
-                copy.Add(7);
-                Assert.Equal(2UL, copy.Count());
-            }
         }
 
         private void RunRecreationFromData(int cardinality = 1000000)
@@ -269,7 +246,7 @@ namespace CardinalityEstimation.Test
 
             CardinalityEstimatorState data = hll.GetState();
 
-            var hll2 = new CardinalityEstimator(data);
+            var hll2 = new CardinalityEstimator(Murmur3.GetHashCode, data);
             CardinalityEstimatorState data2 = hll2.GetState();
 
             Assert.Equal(data.BitsPerIndex, data2.BitsPerIndex);
@@ -303,7 +280,7 @@ namespace CardinalityEstimation.Test
             RunTest(stdError, cardinality);
         }
 
-        [Fact(Skip = "runtime is long")]
+        [Fact]
         public void TestAccuracyLargeCardinality()
         {
             for (var i = 10007; i < 10000000; i *= 2)
@@ -316,7 +293,7 @@ namespace CardinalityEstimation.Test
             RunTest(0.008125, 100000000);
         }
 
-        [Fact(Skip = "runtime is long")]
+        [Fact]
         public void TestSequentialAccuracy()
         {
             for (var i = 10007; i < 10000000; i *= 2)
@@ -329,7 +306,7 @@ namespace CardinalityEstimation.Test
             RunTest(0.008125, 100000000);
         }
 
-        [Fact(Skip = "runtime is long")]
+        [Fact]
         public void ReportAccuracy()
         {
             var hll = new CardinalityEstimator();
@@ -394,7 +371,7 @@ namespace CardinalityEstimation.Test
             {
                 for (int cardinality = 1; cardinality < 10_000; cardinality *= 2)
                 {
-                    var hll = new CardinalityEstimator(b, useDirectCounting: true);
+                    var hll = new CardinalityEstimator(b: b);
 
                     var nextMember = new byte[ElementSizeInBytes];
                     for (var i = 0; i < cardinality; i++)
@@ -413,7 +390,7 @@ namespace CardinalityEstimation.Test
             {
                 for (int cardinality = 1; cardinality < 10_000; cardinality *= 2)
                 {
-                    var hll = new CardinalityEstimator(b, useDirectCounting: false);
+                    var hll = new CardinalityEstimator(b: b);
 
                     var nextMember = new byte[ElementSizeInBytes];
                     for (var i = 0; i < cardinality; i++)
@@ -452,7 +429,7 @@ namespace CardinalityEstimation.Test
             var hlls = new CardinalityEstimator[numHllInstances];
             for (var i = 0; i < numHllInstances; i++)
             {
-                hlls[i] = new CardinalityEstimator(b, useDirectCounting: !disableDirectCount);
+                hlls[i] = new CardinalityEstimator(b: b);
             }
 
             var nextMember = new byte[ElementSizeInBytes];

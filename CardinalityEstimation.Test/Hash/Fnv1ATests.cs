@@ -30,26 +30,13 @@ namespace CardinalityEstimation.Test.Hash
 
     public class Fnv1ATests
     {
-        private readonly Fnv1A fnv1A;
-
-        public Fnv1ATests()
-        {
-            fnv1A = new Fnv1A();
-        }
-
         [Fact]
         public void Fnv1AProducesRightValues()
         {
             // Check some precomputed values of FNV1A
-            Assert.Equal(14695981039346656037, fnv1A.GetHashCode(new byte[0]));
-            Assert.Equal(1109817072422714760UL, fnv1A.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
-            Assert.Equal(11047178588169845073UL, fnv1A.GetHashCode(new byte[] { 255, 255, 255, 255 }));
-        }
-
-        [Fact]
-        public void Fnv1AHasRightId()
-        {
-            Assert.True(fnv1A.HashFunctionId == 0, "When serialized to a byte, FNV-1A's ID should be 0");
+            Assert.Equal(14695981039346656037, Fnv1A.GetHashCode(new byte[0]));
+            Assert.Equal(1109817072422714760UL, Fnv1A.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
+            Assert.Equal(11047178588169845073UL, Fnv1A.GetHashCode(new byte[] { 255, 255, 255, 255 }));
         }
     }
 }
