@@ -28,7 +28,7 @@ namespace CardinalityEstimation.Hash
     /// <summary>
     /// Helper class to computes the 64-bit FNV-1a hash of byte arrays, <see cref="GetHashCode" />
     /// </summary>
-    internal class Fnv1A
+    public class Fnv1A
     {
         /// <summary>
         /// Computes the 64-bit FNV-1a hash of the given <paramref name="bytes" />, see

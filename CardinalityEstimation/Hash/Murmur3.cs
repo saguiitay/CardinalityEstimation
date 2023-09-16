@@ -29,7 +29,7 @@ namespace CardinalityEstimation.Hash
     using System.Collections.Concurrent;
     using Murmur;
 
-    internal class Murmur3
+    public class Murmur3
     {
         private static readonly ConcurrentStack<Murmur128> pool = new ConcurrentStack<Murmur128>();
 
