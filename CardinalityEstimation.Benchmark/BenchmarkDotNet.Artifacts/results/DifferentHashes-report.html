@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>DifferentHashes-20230916-162923</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.13.8, Windows 11 (10.0.22621.2283/22H2/2022Update/SunValley2)
+Intel Core i7-8700 CPU 3.20GHz (Coffee Lake), 1 CPU, 12 logical and 6 physical cores
+.NET SDK 8.0.100-rc.1.23463.5
+  [Host] : .NET 7.0.11 (7.0.1123.42427), X64 RyuJIT AVX2
+  Core70 : .NET 7.0.11 (7.0.1123.42427), X64 RyuJIT AVX2
+  Core80 : .NET 8.0.0 (8.0.23.41904), X64 RyuJIT AVX2
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job</th><th>Runtime</th><th>Bits</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Gen0</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Murmur3</td><td>Core70</td><td>.NET 7.0</td><td>4</td><td>2,145.8 ms</td><td>28.16 ms</td><td>24.96 ms</td><td>34000.0000</td><td>2441.41 MB</td>
+</tr><tr><td>Fnv1A</td><td>Core70</td><td>.NET 7.0</td><td>4</td><td>1,062.2 ms</td><td>10.78 ms</td><td>9.55 ms</td><td>10000.0000</td><td>762.95 MB</td>
+</tr><tr><td>XxHash64</td><td>Core70</td><td>.NET 7.0</td><td>4</td><td>861.5 ms</td><td>7.19 ms</td><td>6.38 ms</td><td>13000.0000</td><td>1068.12 MB</td>
+</tr><tr><td>XxHash128</td><td>Core70</td><td>.NET 7.0</td><td>4</td><td>782.3 ms</td><td>11.13 ms</td><td>9.29 ms</td><td>15000.0000</td><td>1144.42 MB</td>
+</tr><tr><td>Murmur3</td><td>Core80</td><td>.NET 8.0</td><td>4</td><td>2,007.7 ms</td><td>38.95 ms</td><td>52.00 ms</td><td>27000.0000</td><td>2441.41 MB</td>
+</tr><tr><td>Fnv1A</td><td>Core80</td><td>.NET 8.0</td><td>4</td><td>1,013.4 ms</td><td>6.26 ms</td><td>5.85 ms</td><td>8000.0000</td><td>762.95 MB</td>
+</tr><tr><td>XxHash64</td><td>Core80</td><td>.NET 8.0</td><td>4</td><td>869.7 ms</td><td>6.63 ms</td><td>5.88 ms</td><td>12000.0000</td><td>1068.12 MB</td>
+</tr><tr><td>XxHash128</td><td>Core80</td><td>.NET 8.0</td><td>4</td><td>779.6 ms</td><td>7.87 ms</td><td>7.36 ms</td><td>13000.0000</td><td>1144.42 MB</td>
+</tr><tr><td>Murmur3</td><td>Core70</td><td>.NET 7.0</td><td>16</td><td>2,177.4 ms</td><td>42.68 ms</td><td>70.12 ms</td><td>34000.0000</td><td>2441.72 MB</td>
+</tr><tr><td>Fnv1A</td><td>Core70</td><td>.NET 7.0</td><td>16</td><td>1,121.2 ms</td><td>10.51 ms</td><td>9.32 ms</td><td>10000.0000</td><td>763.26 MB</td>
+</tr><tr><td>XxHash64</td><td>Core70</td><td>.NET 7.0</td><td>16</td><td>909.6 ms</td><td>17.82 ms</td><td>28.27 ms</td><td>14000.0000</td><td>1068.43 MB</td>
+</tr><tr><td>XxHash128</td><td>Core70</td><td>.NET 7.0</td><td>16</td><td>825.1 ms</td><td>16.01 ms</td><td>22.96 ms</td><td>15000.0000</td><td>1144.73 MB</td>
+</tr><tr><td>Murmur3</td><td>Core80</td><td>.NET 8.0</td><td>16</td><td>2,094.1 ms</td><td>31.54 ms</td><td>27.96 ms</td><td>27000.0000</td><td>2441.72 MB</td>
+</tr><tr><td>Fnv1A</td><td>Core80</td><td>.NET 8.0</td><td>16</td><td>1,098.3 ms</td><td>21.94 ms</td><td>23.47 ms</td><td>8000.0000</td><td>763.26 MB</td>
+</tr><tr><td>XxHash64</td><td>Core80</td><td>.NET 8.0</td><td>16</td><td>903.3 ms</td><td>16.75 ms</td><td>17.20 ms</td><td>12000.0000</td><td>1068.43 MB</td>
+</tr><tr><td>XxHash128</td><td>Core80</td><td>.NET 8.0</td><td>16</td><td>835.4 ms</td><td>15.32 ms</td><td>12.79 ms</td><td>13000.0000</td><td>1144.73 MB</td>
+</tr></tbody></table>
+</body>
+</html>

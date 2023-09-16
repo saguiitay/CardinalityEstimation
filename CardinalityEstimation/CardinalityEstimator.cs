@@ -179,7 +179,15 @@ namespace CardinalityEstimation
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             // Init the hash function
-            this.hashFunction = hashFunction ?? Murmur3.GetHashCode;
+            this.hashFunction = hashFunction;
+            if (this.hashFunction == null)
+            {
+#if NET8_0_OR_GREATER
+                hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+#else
+                hashFunction = Murmur3.GetHashCode;
+#endif
+            }
 
             // Init the direct count
             directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
@@ -214,7 +222,7 @@ namespace CardinalityEstimation
                 directCount = null;
             }
         }
-        #endregion
+#endregion
 
         #region Public properties
         public ulong CountAdditions { get; private set; }

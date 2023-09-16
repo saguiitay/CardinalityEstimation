@@ -16,7 +16,7 @@ public class DifferentHashes
 {
     public static readonly Random Rand = new Random();
        
-    private const int N = 1000;
+    private const int N = 10000000;
 
     private string[] dataStrings = Enumerable.Range(0, N).Select(_ => Rand.Next().ToString() + Guid.NewGuid().ToString() + Rand.Next().ToString()).ToArray();
 
@@ -28,7 +28,7 @@ public class DifferentHashes
     [Benchmark]
     public void Fnv1A() => Run(Bits, CardinalityEstimation.Hash.Fnv1A.GetHashCode);
     [Benchmark]
-    public void XxHash64() => Run(Bits, (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash64.Hash(x)));
+    public void XxHash128() => Run(Bits, (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
 
 
     private void Run(int bits, GetHashCodeDelegate hashFunction)
@@ -46,7 +46,7 @@ public class GetBytesTests
 {
     public static readonly Random Rand = new Random();
 
-    private const int N = 1000;
+    private const int N = 10000000;
 
     private int[] dataInts = Enumerable.Range(0, N).Select(_ => Rand.Next()).ToArray();
 

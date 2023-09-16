@@ -31,6 +31,11 @@
         <SignAssembly>true</SignAssembly>
     </PropertyGroup>
 
+    <ItemGroup >
+        <PackageReference Include="System.IO.Hashing" Version="7.0.0" Condition="'$(TargetFramework)' == 'net7.0'"/>
+        <PackageReference Include="System.IO.Hashing" Version="8.0.0-rc.1.23419.4" Condition="'$(TargetFramework)' == 'net8.0'"/>
+    </ItemGroup>
+
     <ItemGroup Condition=" '$(Configuration)' == 'Release-Signed' ">
         <PackageReference Include="murmurhash-signed" Version="1.0.3" />
     </ItemGroup>
