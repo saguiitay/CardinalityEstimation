@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation", "Ca
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation.Test", "CardinalityEstimation.Test\CardinalityEstimation.Test.csproj", "{8029A737-1861-4FBB-A85E-BF4B50DF7135}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CardinalityEstimation.Benchmark", "CardinalityEstimation.Benchmark\CardinalityEstimation.Benchmark.csproj", "{EC333959-268B-4D4E-AC16-787A2CCEC131}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,8 +28,12 @@ Global
 		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Release-Signed|Any CPU.ActiveCfg = Release|Any CPU
 		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Release-Signed|Any CPU.Build.0 = Release|Any CPU
-		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Release-Unsigned|Any CPU.ActiveCfg = Release|Any CPU
-		{8029A737-1861-4FBB-A85E-BF4B50DF7135}.Release-Unsigned|Any CPU.Build.0 = Release|Any CPU
+		{EC333959-268B-4D4E-AC16-787A2CCEC131}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC333959-268B-4D4E-AC16-787A2CCEC131}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC333959-268B-4D4E-AC16-787A2CCEC131}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC333959-268B-4D4E-AC16-787A2CCEC131}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC333959-268B-4D4E-AC16-787A2CCEC131}.Release-Signed|Any CPU.ActiveCfg = Release|Any CPU
+		{EC333959-268B-4D4E-AC16-787A2CCEC131}.Release-Signed|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
