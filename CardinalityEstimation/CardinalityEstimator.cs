@@ -69,7 +69,7 @@ namespace CardinalityEstimation
         /// <summary>
         /// Number of bits to compute the HLL estimate on
         /// </summary>
-        private readonly int bitsForHll;
+        private readonly byte bitsForHll;
 
         /// <summary>
         /// HLL lookup table size
@@ -173,7 +173,7 @@ namespace CardinalityEstimation
         internal CardinalityEstimator(GetHashCodeDelegate hashFunction, CardinalityEstimatorState state)
         {
             bitsPerIndex = state.BitsPerIndex;
-            bitsForHll = 64 - bitsPerIndex;
+            bitsForHll = (byte)(64 - bitsPerIndex);
             m = (int) Math.Pow(2, bitsPerIndex);
             alphaM = GetAlphaM(m);
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
@@ -183,9 +183,9 @@ namespace CardinalityEstimation
             if (this.hashFunction == null)
             {
 #if NET8_0_OR_GREATER
-                hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
 #else
-                hashFunction = Murmur3.GetHashCode;
+                this.hashFunction = Murmur3.GetHashCode;
 #endif
             }
 
@@ -656,8 +656,21 @@ namespace CardinalityEstimation
         /// <param name="hash">Hash value to calculate the statistic on</param>
         /// <param name="bitsToCount">Lowest bit to count from <paramref name="hash" /></param>
         /// <returns>The number of leading zeroes in the binary representation of <paramref name="hash" />, plus one</returns>
-        internal static byte GetSigma(ulong hash, int bitsToCount)
+        public static byte GetSigma(ulong hash, byte bitsToCount)
         {
+            if (hash == 0)
+            {
+                return (byte)(bitsToCount + 1);
+            }
+
+#if NET8_0_OR_GREATER
+            ulong mask = ((1UL << bitsToCount) - 1);
+            int knownZeros = 64 - bitsToCount;
+
+            var masked = hash & mask;
+            var leadingZeros = (byte)ulong.LeadingZeroCount(masked);
+            return (byte)(leadingZeros - knownZeros + 1);
+#else
             byte sigma = 1;
             for (int i = bitsToCount - 1; i >= 0; --i)
             {
@@ -671,6 +684,7 @@ namespace CardinalityEstimation
                 }
             }
             return sigma;
+#endif
         }
 
         /// <summary>
@@ -692,7 +706,7 @@ namespace CardinalityEstimation
             lookupSparse = null;
             isSparse = false;
         }
-        #endregion
+#endregion
 
         #region IEquatable implementation
         public bool Equals(CardinalityEstimator other)

@@ -91,7 +91,7 @@ namespace CardinalityEstimation.Test
         [Fact]
         public void TestChanged()
         {
-            var estimator = new CardinalityEstimator();
+            var estimator = new CardinalityEstimator(Murmur3.GetHashCode);
 
             Assert.Equal(0UL, estimator.CountAdditions);
 
