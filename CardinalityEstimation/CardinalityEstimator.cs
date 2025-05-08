@@ -182,11 +182,7 @@ namespace CardinalityEstimation
             this.hashFunction = hashFunction;
             if (this.hashFunction == null)
             {
-#if NET8_0_OR_GREATER
                 this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-#else
-                this.hashFunction = Murmur3.GetHashCode;
-#endif
             }
 
             // Init the direct count
@@ -663,28 +659,12 @@ namespace CardinalityEstimation
                 return (byte)(bitsToCount + 1);
             }
 
-#if NET8_0_OR_GREATER
             ulong mask = ((1UL << bitsToCount) - 1);
             int knownZeros = 64 - bitsToCount;
 
             var masked = hash & mask;
             var leadingZeros = (byte)ulong.LeadingZeroCount(masked);
             return (byte)(leadingZeros - knownZeros + 1);
-#else
-            byte sigma = 1;
-            for (int i = bitsToCount - 1; i >= 0; --i)
-            {
-                if (((hash >> i) & 1) == 0)
-                {
-                    sigma++;
-                }
-                else
-                {
-                    break;
-                }
-            }
-            return sigma;
-#endif
         }
 
         /// <summary>
