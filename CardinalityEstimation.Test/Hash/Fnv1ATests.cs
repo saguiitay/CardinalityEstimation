@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -23,11 +23,12 @@
 //     SOFTWARE.
 // */
 
+using System;
+using CardinalityEstimation.Hash;
+using Xunit;
+
 namespace CardinalityEstimation.Test.Hash
 {
-    using CardinalityEstimation.Hash;
-    using Xunit;
-
     public class Fnv1ATests
     {
         [Fact]
@@ -37,6 +38,22 @@ namespace CardinalityEstimation.Test.Hash
             Assert.Equal(14695981039346656037, Fnv1A.GetHashCode(new byte[0]));
             Assert.Equal(1109817072422714760UL, Fnv1A.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
             Assert.Equal(11047178588169845073UL, Fnv1A.GetHashCode(new byte[] { 255, 255, 255, 255 }));
+        }
+
+        /// <summary>
+        /// Tests that passing a null byte array to Fnv1A.GetHashCode throws a NullReferenceException.
+        /// Given that the method does not include null-checks, a null input should trigger a NullReferenceException.
+        /// </summary>
+        [Fact]
+        [Trait("Owner", "AI Testing Agent v0.1.0-alpha.25310.44+8471bbd")]
+        [Trait("Category", "auto-generated")]
+        public void GetHashCode_NullInput_ThrowsException()
+        {
+            // Arrange
+            byte[] nullBytes = null;
+
+            // Act & Assert
+            Assert.Throws<NullReferenceException>(() => Fnv1A.GetHashCode(nullBytes));
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
