@@ -23,14 +23,12 @@
 //     SOFTWARE.
 // */
 
-using CardinalityEstimation;
-using CardinalityEstimation.Hash;
 using System;
-using System.Collections.Generic;
+using CardinalityEstimation.Hash;
 using Xunit;
+
 namespace CardinalityEstimation.Test.Hash
 {
-
     public class Fnv1ATests
     {
         [Fact]
@@ -40,25 +38,6 @@ namespace CardinalityEstimation.Test.Hash
             Assert.Equal(14695981039346656037, Fnv1A.GetHashCode(new byte[0]));
             Assert.Equal(1109817072422714760UL, Fnv1A.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
             Assert.Equal(11047178588169845073UL, Fnv1A.GetHashCode(new byte[] { 255, 255, 255, 255 }));
-        }
-
-        /// <summary>
-        /// Tests that Fnv1A.GetHashCode returns the expected hash for various input byte arrays.
-        /// The test verifies known outcomes for empty arrays and specific byte sequences.
-        /// </summary>
-        /// <param name="inputBytes">Input byte array to hash.</param>
-        /// <param name="expectedHash">The expected 64-bit FNV-1a hash value.</param>
-        [Theory]
-        [MemberData(nameof(GetHashCodeTestCases))]
-        [Trait("Owner", "AI Testing Agent v0.1.0-alpha.25310.44+8471bbd")]
-        [Trait("Category", "auto-generated")]
-        public void GetHashCode_ValidInput_ReturnsExpectedHash(byte[] inputBytes, ulong expectedHash)
-        {
-            // Act
-            ulong actualHash = Fnv1A.GetHashCode(inputBytes);
-
-            // Assert
-            Assert.Equal(expectedHash, actualHash);
         }
 
         /// <summary>
@@ -75,25 +54,6 @@ namespace CardinalityEstimation.Test.Hash
 
             // Act & Assert
             Assert.Throws<NullReferenceException>(() => Fnv1A.GetHashCode(nullBytes));
-        }
-
-        /// <summary>
-        /// Provides test cases for Fnv1A.GetHashCode.
-        /// Each test case includes an input byte array and its expected 64-bit hash.
-        /// </summary>
-        public static IEnumerable<object[]> GetHashCodeTestCases
-        {
-            get
-            {
-                // Test case: empty array should produce the initial hash value.
-                yield return new object[] { new byte[0], 14695981039346656037UL };
-
-                // Test case: specific byte sequence [1,2,3,4,5].
-                yield return new object[] { new byte[] { 1, 2, 3, 4, 5 }, 1109817072422714760UL };
-
-                // Test case: specific byte sequence [255,255,255,255].
-                yield return new object[] { new byte[] { 255, 255, 255, 255 }, 11047178588169845073UL };
-            }
         }
     }
 }
