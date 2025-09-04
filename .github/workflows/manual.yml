@@ -31,9 +31,9 @@ jobs:
       run: dotnet build -c Release-Signed --no-restore
     - name: Push to NuGet
       run: |
-        dotnet pack -c Release -o $PWD/Release/nuget
+        dotnet pack .\CardinalityEstimation\CardinalityEstimation.csproj -c Release -o $PWD/Release/nuget
         for file in Release/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
     - name: Push Signed to NuGet
       run: |
-        dotnet pack -c Release-Signed -o $PWD/Release-Signed/nuget
+        dotnet pack .\CardinalityEstimation\CardinalityEstimation.csproj -c Release-Signed -o $PWD/Release-Signed/nuget
         for file in Release-Signed/nuget/*.nupkg; do dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} $file; done
