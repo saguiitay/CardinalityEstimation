@@ -31,6 +31,7 @@ namespace CardinalityEstimation
     using Hash;
 
     public delegate ulong GetHashCodeDelegate(byte[] bytes);
+    public delegate ulong GetHashCodeSpanDelegate(ReadOnlySpan<byte> bytes);
     
     /// <summary>
     /// A cardinality estimator for sets of some common types, which uses a HashSet for small cardinalities,
@@ -50,7 +51,8 @@ namespace CardinalityEstimation
     [Serializable]
     public class CardinalityEstimator : ICardinalityEstimator<string>, ICardinalityEstimator<int>, ICardinalityEstimator<uint>,
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
-        ICardinalityEstimator<byte[]>, IEquatable<CardinalityEstimator>
+        ICardinalityEstimator<byte[]>, ICardinalityEstimatorMemory,
+        IEquatable<CardinalityEstimator>
     {
 
         #region Private consts
@@ -116,6 +118,9 @@ namespace CardinalityEstimation
         /// </summary>
         [NonSerialized]
         private GetHashCodeDelegate hashFunction;
+        [NonSerialized]
+        private GetHashCodeSpanDelegate hashFunctionSpan;
+
         #endregion
 
         #region Constructors
@@ -171,19 +176,44 @@ namespace CardinalityEstimation
         /// Creates a CardinalityEstimator with the given <paramref name="state" />
         /// </summary>
         internal CardinalityEstimator(GetHashCodeDelegate hashFunction, CardinalityEstimatorState state)
+            : this(state)
+        {
+            // Init the hash function
+            this.hashFunction = hashFunction;
+            if (this.hashFunction == null)
+            {
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+            else
+            {
+                this.hashFunctionSpan = (x) => hashFunction(x.ToArray());
+            }
+
+        }
+
+        /// <summary>
+        /// Creates a CardinalityEstimator with the given <paramref name="state" />
+        /// </summary>
+        internal CardinalityEstimator(GetHashCodeSpanDelegate hashFunctionSpan, CardinalityEstimatorState state)
+            : this(state)
+        {
+            // Init the hash function
+            this.hashFunctionSpan = hashFunctionSpan;
+            if (this.hashFunction == null)
+            {
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+        }
+
+        internal CardinalityEstimator(CardinalityEstimatorState state)
         {
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
             m = (int) Math.Pow(2, bitsPerIndex);
             alphaM = GetAlphaM(m);
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
-
-            // Init the hash function
-            this.hashFunction = hashFunction;
-            if (this.hashFunction == null)
-            {
-                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-            }
 
             // Init the direct count
             directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
@@ -316,6 +346,54 @@ namespace CardinalityEstimation
         public bool Add(byte[] element)
         {
             ulong hashCode = hashFunction(element);
+            bool changed = AddElementHash(hashCode);
+            CountAdditions++;
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(Span<byte> element)
+        {
+            ulong hashCode = hashFunctionSpan(element);
+            bool changed = AddElementHash(hashCode);
+            CountAdditions++;
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(ReadOnlySpan<byte> element)
+        {
+            ulong hashCode = hashFunctionSpan(element);
+            bool changed = AddElementHash(hashCode);
+            CountAdditions++;
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(Memory<byte> element)
+        {
+            ulong hashCode = hashFunctionSpan(element.Span);
+            bool changed = AddElementHash(hashCode);
+            CountAdditions++;
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(ReadOnlyMemory<byte> element)
+        {
+            ulong hashCode = hashFunctionSpan(element.Span);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;

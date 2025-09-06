@@ -46,7 +46,7 @@ namespace CardinalityEstimation
     [Serializable]
     public class ConcurrentCardinalityEstimator : ICardinalityEstimator<string>, ICardinalityEstimator<int>, ICardinalityEstimator<uint>,
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
-        ICardinalityEstimator<byte[]>, IEquatable<ConcurrentCardinalityEstimator>, IDisposable
+        ICardinalityEstimator<byte[]>, ICardinalityEstimatorMemory, IEquatable<ConcurrentCardinalityEstimator>, IDisposable
     {
         #region Private consts
         /// <summary>
@@ -111,7 +111,8 @@ namespace CardinalityEstimation
         /// </summary>
         [NonSerialized]
         private readonly GetHashCodeDelegate hashFunction;
-
+        [NonSerialized]
+        private GetHashCodeSpanDelegate hashFunctionSpan;
         /// <summary>
         /// Count of additions for tracking purposes
         /// </summary>
@@ -207,9 +208,44 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Creates a ConcurrentCardinalityEstimator with the given <paramref name="state" />
+        /// Creates a CardinalityEstimator with the given <paramref name="hashFunction" /> and <paramref name="state" />
         /// </summary>
         internal ConcurrentCardinalityEstimator(GetHashCodeDelegate hashFunction, CardinalityEstimatorState state)
+            : this(state)
+        {
+            // Init the hash function
+            this.hashFunction = hashFunction;
+            if (this.hashFunction == null)
+            {
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+            else
+            {
+                this.hashFunctionSpan = (x) => hashFunction(x.ToArray());
+            }
+
+        }
+
+        /// <summary>
+        /// Creates a CardinalityEstimator with the given <paramref name="hashFunctionSpan" /> and <paramref name="state" />
+        /// </summary>
+        internal ConcurrentCardinalityEstimator(GetHashCodeSpanDelegate hashFunctionSpan, CardinalityEstimatorState state)
+            : this(state)
+        {
+            // Init the hash function
+            this.hashFunctionSpan = hashFunctionSpan;
+            if (this.hashFunction == null)
+            {
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+        }
+
+        /// <summary>
+        /// Creates a ConcurrentCardinalityEstimator with the given <paramref name="state" />
+        /// </summary>
+        internal ConcurrentCardinalityEstimator(CardinalityEstimatorState state)
         {
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
@@ -218,9 +254,6 @@ namespace CardinalityEstimation
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
-
-            // Init the hash function
-            this.hashFunction = hashFunction ?? ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
 
             sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -369,6 +402,59 @@ namespace CardinalityEstimation
         {
             ThrowIfDisposed();
             ulong hashCode = hashFunction(element);
+            bool changed = AddElementHash(hashCode);
+            Interlocked.Increment(ref countAdditions);
+            return changed;
+        }
+
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(Span<byte> element)
+        {
+            ThrowIfDisposed();
+            ulong hashCode = hashFunctionSpan(element);
+            bool changed = AddElementHash(hashCode);
+            Interlocked.Increment(ref countAdditions);
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(ReadOnlySpan<byte> element)
+        {
+            ThrowIfDisposed();
+            ulong hashCode = hashFunctionSpan(element);
+            bool changed = AddElementHash(hashCode);
+            Interlocked.Increment(ref countAdditions);
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(Memory<byte> element)
+        {
+            ThrowIfDisposed();
+            ulong hashCode = hashFunctionSpan(element.Span);
+            bool changed = AddElementHash(hashCode);
+            Interlocked.Increment(ref countAdditions);
+            return changed;
+        }
+
+        /// <summary>
+        /// Add an element of type <see cref="byte[]"/>
+        /// </summary>
+        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        public bool Add(ReadOnlyMemory<byte> element)
+        {
+            ThrowIfDisposed();
+            ulong hashCode = hashFunctionSpan(element.Span);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
