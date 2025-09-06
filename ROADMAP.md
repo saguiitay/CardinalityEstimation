@@ -107,15 +107,13 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 
 **Issues:**
 - Missing async support for I/O operations
-- No support for `System.Text.Json` serialization
 - ~~Not utilizing newer .NET performance features~~
 
 **Improvements:**
 - [x] ~~Utilize `ArrayPool<T>` for temporary byte array allocations~~ (Implicit with memory types)
 - [x] ~~Add `Memory<T>` and `ReadOnlyMemory<T>` support~~
-- [ ] Add `System.Text.Json` serialization support with custom converters
 - [ ] Implement `IAsyncEnumerable<T>` support for streaming additions
-- [ ] Add async serialization methods (`SerializeAsync`, `DeserializeAsync`)
+- [ ] Add async file I/O methods for large dataset processing
 
 **Implementation Summary:**
 - **Memory Efficiency**: Modern memory types reduce allocations and improve performance
@@ -174,26 +172,9 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - [ ] Add HeavyHitters/Count-Min Sketch integration
 - [ ] Create algorithm selection based on use case
 
-### 7. Enhanced Serialization Options
-**Priority:** MEDIUM
-**Impact:** MEDIUM
-**Effort:** MEDIUM
-
-**Issues:**
-- Only binary serialization supported
-- No compression options
-- No format versioning strategy
-
-**Improvements:**
-- [ ] Add JSON serialization with schema versioning
-- [ ] Implement compression support (gzip, brotli)
-- [ ] Add Protocol Buffers serialization
-- [ ] Create migration utilities for format upgrades
-- [ ] Support streaming serialization for large datasets
-
 ## Low Priority Improvements
 
-### 8. Observability & Diagnostics
+### 7. Observability & Diagnostics
 **Priority:** LOW
 **Impact:** MEDIUM
 **Effort:** LOW
@@ -210,7 +191,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - [ ] Add health check capabilities
 - [ ] Implement custom `EventSource` for ETW logging
 
-### 9. Memory Optimization
+### 8. Memory Optimization
 **Priority:** LOW
 **Impact:** MEDIUM
 **Effort:** MEDIUM
@@ -227,7 +208,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - [ ] Implement lazy loading for serialized estimators
 - [ ] Add memory usage reporting methods
 
-### 10. Developer Experience
+### 9. Developer Experience
 **Priority:** LOW
 **Impact:** LOW
 **Effort:** LOW
@@ -246,7 +227,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 
 ## Breaking Changes (Major Version)
 
-### 11. API Modernization
+### 10. API Modernization
 **Priority:** FUTURE
 **Impact:** HIGH
 **Effort:** HIGH
@@ -258,7 +239,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - [ ] Implement proper disposal pattern for resources
 - [ ] Add configuration options pattern
 
-### 12. Architecture Refactoring
+### 11. Architecture Refactoring
 **Priority:** FUTURE
 **Impact:** HIGH
 **Effort:** HIGH
@@ -272,7 +253,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 
 ## New Features
 
-### 13. Distributed Estimation Support
+### 12. Distributed Estimation Support
 **Priority:** FUTURE
 **Impact:** HIGH
 **Effort:** HIGH
@@ -283,7 +264,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - [ ] Real-time streaming support with Apache Kafka integration
 - [ ] Cloud storage backend support (Azure Blob, AWS S3)
 
-### 14. Machine Learning Integration
+### 13. Machine Learning Integration
 **Priority:** FUTURE
 **Impact:** MEDIUM
 **Effort:** HIGH
@@ -305,7 +286,6 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 ### Phase 2: Core Enhancements (6-9 months)
 - Extended hash function support
 - Advanced estimation algorithms
-- Enhanced serialization options
 - Memory optimization
 
 ### Phase 3: Advanced Features (9-12 months)
