@@ -5,7 +5,7 @@
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
         <PackageId Condition=" '$(Configuration)' == 'Release' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
-        <Version>1.13.0</Version>
+        <Version>1.14.0</Version>
         <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
         <Authors>Oron Navon;Sagui Itay</Authors>
         <Company></Company>
@@ -14,10 +14,11 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Copyright>Copyright © Sagui Itay 2022</Copyright>
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
-        <PackageReleaseNotes>Removed support for deprecated dotnet versions.
-Added support for .NET 9.0</PackageReleaseNotes>
-        <AssemblyVersion>1.13.0.0</AssemblyVersion>
-        <FileVersion>1.13.0.0</FileVersion>
+        <PackageReleaseNotes>Added support for Span/ReadOnlySpan/Memory/ReadOnlyMemory
+Added ConcurrentCardinalityEstimator
+Updated XML docs</PackageReleaseNotes>
+        <AssemblyVersion>1.14.0.0</AssemblyVersion>
+        <FileVersion>1.14.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
