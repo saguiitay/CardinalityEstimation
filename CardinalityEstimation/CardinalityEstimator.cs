@@ -30,7 +30,18 @@ namespace CardinalityEstimation
     using System.Text;
     using Hash;
 
+    /// <summary>
+    /// Represents a hash function delegate that computes a hash code for a byte array
+    /// </summary>
+    /// <param name="bytes">The byte array to hash</param>
+    /// <returns>A 64-bit hash code for the input byte array</returns>
     public delegate ulong GetHashCodeDelegate(byte[] bytes);
+    
+    /// <summary>
+    /// Represents a hash function delegate that computes a hash code for a read-only span of bytes
+    /// </summary>
+    /// <param name="bytes">The read-only span of bytes to hash</param>
+    /// <returns>A 64-bit hash code for the input byte span</returns>
     public delegate ulong GetHashCodeSpanDelegate(ReadOnlySpan<byte> bytes);
     
     /// <summary>
@@ -43,10 +54,14 @@ namespace CardinalityEstimation
     /// <see cref="http://static.googleusercontent.com/external_content/untrusted_dlcp/research.google.com/en/us/pubs/archive/40671.pdf" />
     /// </summary>
     /// <remarks>
-    /// 1. This implementation is not thread-safe
-    /// 2. By default, it uses the 128-bit Murmur3 hash function, <see cref="http://github.com/darrenkopp/murmurhash-net"/>.
-    ///    For legacy support, the CTOR also allows using the 64-bit Fowler/Noll/Vo-0 FNV-1a hash function, <see cref="http://www.isthe.com/chongo/src/fnv/hash_64a.c" />
-    /// 3. Estimation is perfect up to 100 elements, then approximate
+    /// <para>1. This implementation is not thread-safe. For thread-safe operations, use <see cref="ConcurrentCardinalityEstimator"/>.</para>
+    /// <para>2. By default, it uses the 128-bit XxHash128 hash function from .NET 9+. 
+    ///    For custom hash functions, provide your own delegate to the constructor.</para>
+    /// <para>3. Estimation is perfect up to 100 elements, then approximate</para>
+    /// <para>4. The estimator automatically switches between three different counting strategies based on the number of elements:
+    /// - Direct counting (exact) for up to 100 elements
+    /// - Sparse representation for medium cardinalities
+    /// - Dense representation for large cardinalities</para>
     /// </remarks>
     [Serializable]
     public class CardinalityEstimator : ICardinalityEstimator<string>, ICardinalityEstimator<int>, ICardinalityEstimator<uint>,
@@ -74,12 +89,12 @@ namespace CardinalityEstimation
         private readonly byte bitsForHll;
 
         /// <summary>
-        /// HLL lookup table size
+        /// HLL lookup table size (2^bitsPerIndex)
         /// </summary>
         private readonly int m;
 
         /// <summary>
-        /// Fixed bias correction factor
+        /// Fixed bias correction factor for the HyperLogLog algorithm
         /// </summary>
         private readonly double alphaM;
 
@@ -89,35 +104,39 @@ namespace CardinalityEstimation
         private readonly double subAlgorithmSelectionThreshold;
 
         /// <summary>
-        /// Lookup table for the dense representation
+        /// Lookup table for the dense representation of HLL buckets
         /// </summary>
         private byte[] lookupDense;
 
         /// <summary>
-        /// Lookup dictionary for the sparse representation
+        /// Lookup dictionary for the sparse representation of HLL buckets
         /// </summary>
         private IDictionary<ushort, byte> lookupSparse;
 
         /// <summary>
-        /// Max number of elements to hold in the sparse representation
+        /// Max number of elements to hold in the sparse representation before switching to dense
         /// </summary>
         private readonly int sparseMaxElements;
 
         /// <summary>
-        /// Indicates that the sparse representation is currently used
+        /// Indicates that the sparse representation is currently being used
         /// </summary>
         private bool isSparse;
 
         /// <summary>
-        /// Set for direct counting of elements
+        /// Set for direct counting of elements for perfect accuracy on small sets
         /// </summary>
         private HashSet<ulong> directCount;
 
         /// <summary>
-        /// Hash function used
+        /// Hash function used to hash input elements to 64-bit values
         /// </summary>
         [NonSerialized]
         private GetHashCodeDelegate hashFunction;
+        
+        /// <summary>
+        /// Hash function used to hash input spans to 64-bit values for zero-allocation scenarios
+        /// </summary>
         [NonSerialized]
         private GetHashCodeSpanDelegate hashFunctionSpan;
 
@@ -127,6 +146,10 @@ namespace CardinalityEstimation
         /// <summary>
         /// Creates a new instance of CardinalityEstimator
         /// </summary>
+        /// <param name="hashFunction">
+        /// Hash function to use for hashing input elements. If null, defaults to XxHash128 from .NET.
+        /// The hash function should provide good distribution properties for accurate estimates.
+        /// </param>
         /// <param name="b">
         /// Number of bits determining accuracy and memory consumption, in the range [4, 16] (higher = greater accuracy and memory usage).
         /// For large cardinalities, the standard error is 1.04 * 2^(-b/2), and the memory consumption is bounded by 2^b kilobytes.
@@ -134,18 +157,23 @@ namespace CardinalityEstimation
         /// and uses up to ~16kB of memory.  b=4 yields less than ~100% error and uses less than 1kB. b=16 uses up to ~64kB and usually yields 1%
         /// error or less
         /// </param>
-        /// <param name="hashFunctionId">Type of hash function to use. Default is Murmur3, and FNV-1a is provided for legacy support</param>
         /// <param name="useDirectCounting">
         /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
+        /// Direct counting provides perfect accuracy for small sets.
         /// </param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="b"/> is not in the range [4, 16].
+        /// </exception>
         public CardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
             : this(hashFunction, CreateEmptyState(b, useDirectCounting))
         { }
 
         /// <summary>
-        /// Copy constructor
+        /// Copy constructor that creates a new instance as a copy of another estimator
         /// </summary>
+        /// <param name="other">The CardinalityEstimator instance to copy</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is null</exception>
         public CardinalityEstimator(CardinalityEstimator other)
         {
             bitsPerIndex = other.bitsPerIndex;
@@ -173,8 +201,11 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Creates a CardinalityEstimator with the given <paramref name="state" />
+        /// Creates a CardinalityEstimator with the given hash function and state
         /// </summary>
+        /// <param name="hashFunction">Hash function to use for element hashing</param>
+        /// <param name="state">The state to initialize the estimator with</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="state"/> is null</exception>
         internal CardinalityEstimator(GetHashCodeDelegate hashFunction, CardinalityEstimatorState state)
             : this(state)
         {
@@ -193,20 +224,32 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Creates a CardinalityEstimator with the given <paramref name="state" />
+        /// Creates a CardinalityEstimator with the given span hash function and state
         /// </summary>
+        /// <param name="hashFunctionSpan">Span hash function to use for element hashing</param>
+        /// <param name="state">The state to initialize the estimator with</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="state"/> is null</exception>
         internal CardinalityEstimator(GetHashCodeSpanDelegate hashFunctionSpan, CardinalityEstimatorState state)
             : this(state)
         {
             // Init the hash function
             this.hashFunctionSpan = hashFunctionSpan;
-            if (this.hashFunction == null)
+            if (this.hashFunctionSpan == null)
             {
                 this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
                 this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
             }
+            else
+            {
+                this.hashFunction = (x) => hashFunctionSpan(x);
+            }
         }
 
+        /// <summary>
+        /// Creates a CardinalityEstimator from serialized state
+        /// </summary>
+        /// <param name="state">The state to restore the estimator from</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="state"/> is null</exception>
         internal CardinalityEstimator(CardinalityEstimatorState state)
         {
             bitsPerIndex = state.BitsPerIndex;
@@ -251,6 +294,11 @@ namespace CardinalityEstimation
 #endregion
 
         #region Public properties
+        /// <summary>
+        /// Gets the total number of Add operations that have been performed on this estimator,
+        /// including duplicate elements
+        /// </summary>
+        /// <value>The count of all addition operations performed</value>
         public ulong CountAdditions { get; private set; }
         #endregion
 
@@ -258,9 +306,14 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="string"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The string element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="element"/> is null</exception>
         public bool Add(string element)
         {
+            if (element == null)
+                throw new ArgumentNullException(nameof(element));
+                
             ulong hashCode = hashFunction(Encoding.UTF8.GetBytes(element));
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
@@ -270,7 +323,8 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="int"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The integer element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(int element)
         {
             ulong hashCode = hashFunction(BitConverter.GetBytes(element));
@@ -282,7 +336,8 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="uint"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The unsigned integer element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(uint element)
         {
             ulong hashCode = hashFunction(BitConverter.GetBytes(element));
@@ -294,7 +349,8 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="long"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The long integer element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(long element)
         {
             ulong hashCode = hashFunction(BitConverter.GetBytes(element));
@@ -306,7 +362,8 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="ulong"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The unsigned long integer element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(ulong element)
         {
             ulong hashCode = hashFunction(BitConverter.GetBytes(element));
@@ -318,7 +375,8 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="float"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The float element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(float element)
         {
             ulong hashCode = hashFunction(BitConverter.GetBytes(element));
@@ -330,7 +388,8 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="double"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The double element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(double element)
         {
             ulong hashCode = hashFunction(BitConverter.GetBytes(element));
@@ -342,9 +401,14 @@ namespace CardinalityEstimation
         /// <summary>
         /// Add an element of type <see cref="byte[]"/>
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The byte array element to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="element"/> is null</exception>
         public bool Add(byte[] element)
         {
+            if (element == null)
+                throw new ArgumentNullException(nameof(element));
+                
             ulong hashCode = hashFunction(element);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
@@ -352,9 +416,10 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Add an element of type <see cref="byte[]"/>
+        /// Add data from a <see cref="Span{T}"/> of bytes with zero allocations
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The span of bytes to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(Span<byte> element)
         {
             ulong hashCode = hashFunctionSpan(element);
@@ -364,9 +429,10 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Add an element of type <see cref="byte[]"/>
+        /// Add data from a <see cref="ReadOnlySpan{T}"/> of bytes with zero allocations
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The read-only span of bytes to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(ReadOnlySpan<byte> element)
         {
             ulong hashCode = hashFunctionSpan(element);
@@ -376,9 +442,10 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Add an element of type <see cref="byte[]"/>
+        /// Add data from a <see cref="Memory{T}"/> of bytes with optimized allocation patterns
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The memory of bytes to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(Memory<byte> element)
         {
             ulong hashCode = hashFunctionSpan(element.Span);
@@ -388,9 +455,10 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Add an element of type <see cref="byte[]"/>
+        /// Add data from a <see cref="ReadOnlyMemory{T}"/> of bytes with optimized allocation patterns
         /// </summary>
-        /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <param name="element">The read-only memory of bytes to add to the set</param>
+        /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(ReadOnlyMemory<byte> element)
         {
             ulong hashCode = hashFunctionSpan(element.Span);
@@ -402,8 +470,14 @@ namespace CardinalityEstimation
         /// <summary>
         /// Returns the estimated number of items in the estimator
         /// </summary>
+        /// <returns>
+        /// The estimated count of unique elements. If direct counting is enabled and fewer than
+        /// <see cref="DirectCounterMaxElements"/> elements have been added, returns the exact count.
+        /// Otherwise, returns an approximation using HyperLogLog or LinearCounting algorithms.
+        /// </returns>
         /// <remarks>
-        /// If Direct Count is enabled, and only a few items were added, the exact count is returned
+        /// The estimation algorithm automatically selects between HyperLogLog and LinearCounting
+        /// based on the estimated cardinality to provide the most accurate result for the given range.
         /// </remarks>
         public ulong Count()
         {
@@ -468,7 +542,16 @@ namespace CardinalityEstimation
         /// <summary>
         /// Merges the given <paramref name="other" /> CardinalityEstimator instance into this one
         /// </summary>
-        /// <param name="other">another instance of CardinalityEstimator</param>
+        /// <param name="other">Another instance of CardinalityEstimator to merge</param>
+        /// <remarks>
+        /// After merging, this estimator will provide a cardinality estimate equivalent to
+        /// the union of both sets. The merge operation is commutative - the order doesn't matter.
+        /// Both estimators must have the same accuracy parameter (bitsPerIndex).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is null</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="other"/> has different accuracy/map sizes than this estimator
+        /// </exception>
         public void Merge(CardinalityEstimator other)
         {
             if (other == null)
@@ -545,15 +628,19 @@ namespace CardinalityEstimation
         /// <summary>
         /// Merges <paramref name="estimators" /> into a new <see cref="CardinalityEstimator" />.
         /// </summary>
-        /// <param name="estimators">Instances of <see cref="CardinalityEstimator"/></param>
+        /// <param name="estimators">Instances of <see cref="CardinalityEstimator"/> to merge</param>
         /// <returns>
         /// A new <see cref="CardinalityEstimator" /> if there is at least one non-null <see cref="CardinalityEstimator" /> in
         /// <paramref name="estimators" />; otherwise <see langword="null" />.
         /// </returns>
         /// <remarks>
-        /// The <c>b</c> and <c>hashFunctionId</c> provided to the constructor for the result are taken from the first non-null
-        /// <see cref="CardinalityEstimator"/> in <paramref name="estimators"/>. The remaining estimators are assumed to use the same parameters.
+        /// <para>The <c>b</c> and hash function parameters for the result are taken from the first non-null
+        /// <see cref="CardinalityEstimator"/> in <paramref name="estimators"/>. The remaining estimators are assumed to use the same parameters.</para>
+        /// <para>All non-null estimators in the collection must have the same accuracy parameters.</para>
         /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when estimators have different accuracy/map sizes
+        /// </exception>
         public static CardinalityEstimator Merge(IEnumerable<CardinalityEstimator> estimators)
         {
             if (estimators == null)
@@ -581,6 +668,10 @@ namespace CardinalityEstimation
         }
 
         #region Private/Internal methods
+        /// <summary>
+        /// Gets the current state of this estimator for serialization purposes
+        /// </summary>
+        /// <returns>A <see cref="CardinalityEstimatorState"/> representing the current state</returns>
         internal CardinalityEstimatorState GetState()
         {
             return new CardinalityEstimatorState
@@ -595,14 +686,17 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Creates state for an empty CardinalityEstimator : DirectCount and LookupSparse are empty, LookupDense is null.
+        /// Creates state for an empty CardinalityEstimator with DirectCount and LookupSparse empty, LookupDense null.
         /// </summary>
-        /// <param name="b"><see cref="CardinalityEstimator(int, HashFunctionId)" /></param>
-        /// <param name="hashFunctionId"><see cref="CardinalityEstimator(int, HashFunctionId)" /></param>
+        /// <param name="b">Number of bits determining accuracy and memory consumption</param>
         /// <param name="useDirectCount">
         /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
+        /// <returns>A new empty state for a CardinalityEstimator</returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="b"/> is not in the range [4, 16]
+        /// </exception>
         private static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount)
         {
             if (b < 4 || b > 16)
@@ -622,11 +716,15 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Returns the threshold determining whether to use LinearCounting or HyperLogLog for an estimate. Values are from the supplementary
-        /// material of Huele et al.,
-        /// <see cref="http://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen#heading=h.nd379k1fxnux" />
+        /// Returns the threshold determining whether to use LinearCounting or HyperLogLog for an estimate. 
+        /// Values are from the supplementary material of Heule et al.
         /// </summary>
-        /// <param name="bits">Number of bits</param>
+        /// <param name="bits">Number of bits for the estimator</param>
+        /// <returns>The threshold value for algorithm selection</returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="bits"/> is not in the supported range
+        /// </exception>
+        /// <see cref="http://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen#heading=h.nd379k1fxnux" />
         private double GetSubAlgorithmSelectionThreshold(int bits)
         {
             switch (bits)
@@ -669,6 +767,7 @@ namespace CardinalityEstimation
         /// Adds an element's hash code to the counted set
         /// </summary>
         /// <param name="hashCode">Hash code of the element to add</param>
+        /// <returns>True if the state was modified, false if the element was already represented</returns>
         private bool AddElementHash(ulong hashCode)
         {
             var changed = false;
@@ -705,10 +804,10 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Gets the appropriate value of alpha_M for the given <paramref name="m" />
+        /// Gets the appropriate value of alpha_M for the given <paramref name="m" /> for bias correction
         /// </summary>
-        /// <param name="m">size of the lookup table</param>
-        /// <returns>alpha_M for bias correction</returns>
+        /// <param name="m">Size of the lookup table (2^bitsPerIndex)</param>
+        /// <returns>alpha_M value for bias correction in HyperLogLog algorithm</returns>
         private  double GetAlphaM(int m)
         {
             switch (m)
@@ -725,11 +824,16 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Returns the number of leading zeroes in the <paramref name="bitsToCount" /> highest bits of <paramref name="hash" />, plus one
+        /// Returns the number of leading zeroes in the <paramref name="bitsToCount" /> highest bits of <paramref name="hash" />, plus one.
+        /// This is the sigma value used in the HyperLogLog algorithm.
         /// </summary>
         /// <param name="hash">Hash value to calculate the statistic on</param>
-        /// <param name="bitsToCount">Lowest bit to count from <paramref name="hash" /></param>
+        /// <param name="bitsToCount">Number of bits from the hash to consider for counting leading zeros</param>
         /// <returns>The number of leading zeroes in the binary representation of <paramref name="hash" />, plus one</returns>
+        /// <remarks>
+        /// This method is used to compute the rank (sigma) of a hash value for the HyperLogLog algorithm.
+        /// The rank represents the position of the first 1 bit in the binary representation.
+        /// </remarks>
         public static byte GetSigma(ulong hash, byte bitsToCount)
         {
             if (hash == 0)
@@ -746,8 +850,14 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Converts this estimator from the sparse to the dense representation
+        /// Converts this estimator from the sparse to the dense representation.
+        /// This is automatically called when the sparse representation becomes too large.
         /// </summary>
+        /// <remarks>
+        /// The sparse representation is more memory-efficient for small to medium cardinalities,
+        /// but becomes less efficient as the number of distinct buckets grows. This method
+        /// performs the transition to the dense representation when needed.
+        /// </remarks>
         private void SwitchToDenseRepresentation()
         {
             if (!isSparse)
@@ -767,6 +877,18 @@ namespace CardinalityEstimation
 #endregion
 
         #region IEquatable implementation
+        /// <summary>
+        /// Determines whether the specified CardinalityEstimator is equal to the current CardinalityEstimator.
+        /// </summary>
+        /// <param name="other">The CardinalityEstimator to compare with the current CardinalityEstimator.</param>
+        /// <returns>
+        /// <c>true</c> if the specified CardinalityEstimator is equal to the current CardinalityEstimator; otherwise, <c>false</c>.
+        /// </returns>
+        /// <remarks>
+        /// Two CardinalityEstimators are considered equal if they have the same configuration parameters,
+        /// internal state, and would produce the same cardinality estimates. This includes comparing
+        /// the accuracy settings, hash function, and internal data structures.
+        /// </remarks>
         public bool Equals(CardinalityEstimator other)
         {
             if (other == null)
@@ -781,7 +903,8 @@ namespace CardinalityEstimation
                 subAlgorithmSelectionThreshold != other.subAlgorithmSelectionThreshold ||
                 sparseMaxElements != other.sparseMaxElements ||
                 isSparse != other.isSparse ||
-                hashFunction != other.hashFunction)
+                hashFunction != other.hashFunction ||
+                hashFunctionSpan != other.hashFunctionSpan)
             {
                 return false;
             }
