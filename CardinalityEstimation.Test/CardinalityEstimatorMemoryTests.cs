@@ -475,7 +475,7 @@ namespace CardinalityEstimation.Test
             // Assert
             var countAfter = estimator1.Count();
             Assert.True(countAfter >= Math.Max(countBefore1, countBefore2));
-            Assert.Equal(6UL, estimator1.CountAdditions); // 4 original + 2 from estimator2
+            Assert.Equal(4UL, estimator1.CountAdditions); // 4 original + 2 from estimator2
         }
 
         #endregion

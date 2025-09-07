@@ -237,12 +237,6 @@ namespace CardinalityEstimation
             byte hashFunctionId;
             if (dataFormatMajorVersion >= 3)
             {
-                // Version 3+ uses configurable hash functions, defaults to XxHash128
-                if (hashFunction == null)
-                {
-                    // Use default XxHash128 for version 3+
-                    hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-                }
             }
             else if (dataFormatMajorVersion >= 2)
             {

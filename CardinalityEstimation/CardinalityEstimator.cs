@@ -198,6 +198,7 @@ namespace CardinalityEstimation
                 directCount = new HashSet<ulong>(other.directCount, other.directCount.Comparer);
             }
             hashFunction = other.hashFunction;
+            hashFunctionSpan = other.hashFunctionSpan;
         }
 
         /// <summary>
