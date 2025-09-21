@@ -6,8 +6,8 @@ using BenchmarkDotNet.Running;
 using CardinalityEstimation;
 
 var config = DefaultConfig.Instance
-                .AddJob(Job.Default.WithId("Core70").WithRuntime(CoreRuntime.Core70))
-                .AddJob(Job.Default.WithId("Core80").WithRuntime(CoreRuntime.Core80));
+                .AddJob(Job.Default.WithId("Core80").WithRuntime(CoreRuntime.Core80))
+                .AddJob(Job.Default.WithId("Core90").WithRuntime(CoreRuntime.Core90));
 
 BenchmarkRunner.Run<DifferentHashes>(config);
 
