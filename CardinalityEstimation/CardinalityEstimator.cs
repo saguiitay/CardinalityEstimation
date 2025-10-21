@@ -27,6 +27,7 @@ namespace CardinalityEstimation
 {
     using System;
     using System.Collections.Generic;
+    using System.Numerics;
     using System.Text;
     using Hash;
 
@@ -214,8 +215,8 @@ namespace CardinalityEstimation
             this.hashFunction = hashFunction;
             if (this.hashFunction == null)
             {
-                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
             }
             else
             {
@@ -237,8 +238,8 @@ namespace CardinalityEstimation
             this.hashFunctionSpan = hashFunctionSpan;
             if (this.hashFunctionSpan == null)
             {
-                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
             }
             else
             {
@@ -846,7 +847,7 @@ namespace CardinalityEstimation
             int knownZeros = 64 - bitsToCount;
 
             var masked = hash & mask;
-            var leadingZeros = (byte)ulong.LeadingZeroCount(masked);
+            var leadingZeros = (byte)BitOperations.LeadingZeroCount(masked);
             return (byte)(leadingZeros - knownZeros + 1);
         }
 

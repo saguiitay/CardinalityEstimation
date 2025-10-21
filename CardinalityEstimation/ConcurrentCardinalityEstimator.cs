@@ -168,7 +168,7 @@ namespace CardinalityEstimation
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
             // Init the hash function - use default since we can't get it from the other estimator
-            hashFunction = ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
+            hashFunction = ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0));
 
             sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -217,8 +217,8 @@ namespace CardinalityEstimation
             this.hashFunction = hashFunction;
             if (this.hashFunction == null)
             {
-                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
             }
             else
             {
@@ -237,8 +237,8 @@ namespace CardinalityEstimation
             this.hashFunctionSpan = hashFunctionSpan;
             if (this.hashFunction == null)
             {
-                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
-                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x), 0);
             }
         }
 
