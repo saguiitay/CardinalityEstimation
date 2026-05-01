@@ -158,10 +158,13 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 ## Release Notes
 
 ### 1.15.0
-- Switched target frameworks from `net8.0` / `net9.0` to `net8.0` / `net10.0`.
-- Updated `System.IO.Hashing` dependency from `8.0.0` to `10.0.7`.
-- Hardened `CardinalityEstimatorSerializer` against denial-of-service via a maliciously crafted input stream: `bitsPerIndex` and all length-prefixed counts (direct / sparse / dense) are now validated before any allocation.
-- Fixed `ConcurrentCardinalityEstimator` direct-count storage: replaced the underlying `ConcurrentBag<ulong>` (which permits duplicates and forced an O(n), allocating `Distinct().Count()` on every `Add`, `Count`, `Merge`, and `Equals`) with a `ConcurrentDictionary<ulong, byte>` used as a concurrent hash set. Restores O(1) operations with no per-call allocations on the hot path.
+- Hardened `CardinalityEstimatorSerializer` against DoS via crafted input.
+- Switched target frameworks to `net8.0` / `net10.0`.
+- Updated `System.IO.Hashing` to `10.0.7`.
+- Fixed O(n) `ConcurrentCardinalityEstimator` direct-count storage (`ConcurrentBag` → `ConcurrentDictionary`).
+- Zero-allocation primitive `Add` overloads (`stackalloc` + span hash).
+- Precomputed inverse-powers-of-two table in `Count()` (removes `Math.Pow` from hot loop).
+- Bulk-write dense lookup array in serializer.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
