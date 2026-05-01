@@ -171,6 +171,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Compute `m` via bit shift (`1 << bitsPerIndex`) instead of `(int)Math.Pow(2, bitsPerIndex)` in constructors.
 - Documented the intentionally empty version-3 branch in `CardinalityEstimatorSerializer.Read`.
 - Consolidated duplicated constants (`DirectCounterMaxElements`, `StackallocByteThreshold`) and helpers (`GetAlphaM`, `GetSubAlgorithmSelectionThreshold`, `CreateEmptyState`) into `HllConstants`.
+- Honored `parallelismDegree` in `ConcurrentCardinalityEstimator.ParallelMerge` and removed dead `ParallelQuery` variable.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
