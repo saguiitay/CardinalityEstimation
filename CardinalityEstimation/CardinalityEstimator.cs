@@ -71,15 +71,6 @@ namespace CardinalityEstimation
         IEquatable<CardinalityEstimator>
     {
 
-        #region Private consts
-        // DirectCounterMaxElements and StackallocByteThreshold moved to HllConstants
-        // so they can be shared with ConcurrentCardinalityEstimator. Aliased below
-        // as private consts to keep call sites readable.
-        private const int DirectCounterMaxElements = HllConstants.DirectCounterMaxElements;
-        private const int StackallocByteThreshold = HllConstants.StackallocByteThreshold;
-
-        #endregion
-
         #region Private fields
         /// <summary>
         /// Number of bits for indexing HLL sub-streams - the number of estimators is 2^bitsPerIndex
@@ -161,7 +152,7 @@ namespace CardinalityEstimation
         /// error or less
         /// </param>
         /// <param name="useDirectCounting">
-        /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
+        /// True if direct count should be used for up to <see cref="HllConstants.DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// Direct counting provides perfect accuracy for small sets.
         /// </param>
@@ -323,9 +314,9 @@ namespace CardinalityEstimation
             // Avoid heap-allocating a temporary byte[] for short strings by encoding into a
             // stack buffer and hashing through the span delegate. UTF-8 is endian-independent,
             // so the resulting bytes are identical to Encoding.UTF8.GetBytes(element).
-            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= StackallocByteThreshold)
+            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= HllConstants.StackallocByteThreshold)
             {
-                Span<byte> bytes = stackalloc byte[StackallocByteThreshold];
+                Span<byte> bytes = stackalloc byte[HllConstants.StackallocByteThreshold];
                 int written = Encoding.UTF8.GetBytes(element, bytes);
                 hashCode = hashFunctionSpan(bytes.Slice(0, written));
             }
@@ -503,7 +494,7 @@ namespace CardinalityEstimation
         /// </summary>
         /// <returns>
         /// The estimated count of unique elements. If direct counting is enabled and fewer than
-        /// <see cref="DirectCounterMaxElements"/> elements have been added, returns the exact count.
+        /// <see cref="HllConstants.DirectCounterMaxElements"/> elements have been added, returns the exact count.
         /// Otherwise, returns an approximation using HyperLogLog or LinearCounting algorithms.
         /// </returns>
         /// <remarks>
@@ -642,7 +633,7 @@ namespace CardinalityEstimation
                 if (directCount != null)
                 {
                     directCount.UnionWith(other.directCount);
-                    if (directCount.Count > DirectCounterMaxElements)
+                    if (directCount.Count > HllConstants.DirectCounterMaxElements)
                     {
                         directCount = null;
                     }
@@ -729,7 +720,7 @@ namespace CardinalityEstimation
             if (directCount != null)
             {
                 changed = directCount.Add(hashCode);
-                if (directCount.Count > DirectCounterMaxElements)
+                if (directCount.Count > HllConstants.DirectCounterMaxElements)
                 {
                     directCount = null;
                     changed = true;

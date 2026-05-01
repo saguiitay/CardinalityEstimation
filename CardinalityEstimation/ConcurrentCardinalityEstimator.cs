@@ -49,14 +49,6 @@ namespace CardinalityEstimation
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
         ICardinalityEstimator<byte[]>, ICardinalityEstimatorMemory, IEquatable<ConcurrentCardinalityEstimator>, IDisposable
     {
-        #region Private consts
-        // DirectCounterMaxElements and StackallocByteThreshold moved to HllConstants
-        // so they can be shared with CardinalityEstimator. Aliased below as private
-        // consts to keep call sites readable.
-        private const int DirectCounterMaxElements = HllConstants.DirectCounterMaxElements;
-        private const int StackallocByteThreshold = HllConstants.StackallocByteThreshold;
-        #endregion
-
         #region Private fields
         /// <summary>
         /// Number of bits for indexing HLL sub-streams - the number of estimators is 2^bitsPerIndex
@@ -148,7 +140,7 @@ namespace CardinalityEstimation
         /// error or less
         /// </param>
         /// <param name="useDirectCounting">
-        /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
+        /// True if direct count should be used for up to <see cref="HllConstants.DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
         public ConcurrentCardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
@@ -329,9 +321,9 @@ namespace CardinalityEstimation
             ThrowIfDisposed();
 
             ulong hashCode;
-            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= StackallocByteThreshold)
+            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= HllConstants.StackallocByteThreshold)
             {
-                Span<byte> bytes = stackalloc byte[StackallocByteThreshold];
+                Span<byte> bytes = stackalloc byte[HllConstants.StackallocByteThreshold];
                 int written = Encoding.UTF8.GetBytes(element, bytes);
                 hashCode = hashFunctionSpan(bytes.Slice(0, written));
             }
@@ -809,13 +801,13 @@ namespace CardinalityEstimation
                 changed = directCount.TryAdd(hashCode, 0);
                 int countAfter = directCount.Count;
 
-                if (countAfter > DirectCounterMaxElements)
+                if (countAfter > HllConstants.DirectCounterMaxElements)
                 {
                     lockSlim.EnterWriteLock();
                     try
                     {
                         // Double-check after acquiring write lock
-                        if (directCount != null && directCount.Count > DirectCounterMaxElements)
+                        if (directCount != null && directCount.Count > HllConstants.DirectCounterMaxElements)
                         {
                             directCount = null;
                             changed = true;
@@ -1005,7 +997,7 @@ namespace CardinalityEstimation
                         directCount.TryAdd(key, 0);
                     }
 
-                    if (directCount.Count > DirectCounterMaxElements)
+                    if (directCount.Count > HllConstants.DirectCounterMaxElements)
                     {
                         directCount = null;
                     }
