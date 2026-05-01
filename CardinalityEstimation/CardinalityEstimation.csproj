@@ -20,7 +20,8 @@ Updated System.IO.Hashing to 10.0.7
 Fixed O(n) ConcurrentCardinalityEstimator direct-count storage (ConcurrentBag -&gt; ConcurrentDictionary)
 Zero-allocation primitive Add overloads (stackalloc + span hash)
 Precomputed inverse-powers-of-two table in Count() (removes Math.Pow from hot loop)
-Bulk-write dense lookup array in serializer</PackageReleaseNotes>
+Bulk-write dense lookup array in serializer
+Fixed CardinalityEstimator.Merge(IEnumerable) double-counting CountAdditions for the seed element; copy constructor now preserves CountAdditions</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>

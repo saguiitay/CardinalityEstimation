@@ -208,6 +208,7 @@ namespace CardinalityEstimation
             }
             hashFunction = other.hashFunction;
             hashFunctionSpan = other.hashFunctionSpan;
+            CountAdditions = other.CountAdditions;
         }
 
         /// <summary>
@@ -696,8 +697,10 @@ namespace CardinalityEstimation
                 {
                     result = new CardinalityEstimator(estimator);
                 }
-
-                result.Merge(estimator);
+                else
+                {
+                    result.Merge(estimator);
+                }
             }
 
             return result;

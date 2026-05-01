@@ -165,6 +165,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Zero-allocation primitive `Add` overloads (`stackalloc` + span hash).
 - Precomputed inverse-powers-of-two table in `Count()` (removes `Math.Pow` from hot loop).
 - Bulk-write dense lookup array in serializer.
+- Fixed `CardinalityEstimator.Merge(IEnumerable)` double-counting `CountAdditions` for the seed element; copy constructor now preserves `CountAdditions`.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
