@@ -713,6 +713,28 @@ namespace CardinalityEstimation.Test
             }
         }
 
+        [Theory]
+        [InlineData(4)]
+        [InlineData(10)]
+        [InlineData(14)]
+        [InlineData(16)]
+        public void Constructor_LookupDenseLength_EqualsTwoToBitsPerIndex(int bitsPerIndex)
+        {
+            // m (the number of HLL substreams / dense lookup length) must equal
+            // 2^bitsPerIndex. Constructors compute it via 1 << bitsPerIndex; this
+            // test pins that contract against the documented HLL invariant.
+            int expected = 1 << bitsPerIndex;
+            var hll = new CardinalityEstimator(b: bitsPerIndex);
+            // Force transition into the dense representation.
+            for (int i = 0; i < 5000; i++)
+            {
+                hll.Add(i);
+            }
+            var state = hll.GetState();
+            Assert.NotNull(state.LookupDense);
+            Assert.Equal(expected, state.LookupDense.Length);
+        }
+
         // ---------------------------------------------------------------------
         // Regression tests for the zero-allocation primitive Add overloads.
         //

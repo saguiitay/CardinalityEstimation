@@ -23,7 +23,8 @@ Precomputed inverse-powers-of-two table in Count() (removes Math.Pow from hot lo
 Bulk-write dense lookup array in serializer
 Fixed CardinalityEstimator.Merge(IEnumerable) double-counting CountAdditions for the seed element; copy constructor now preserves CountAdditions
 Fixed ConcurrentCardinalityEstimator span-delegate constructor silently discarding the supplied delegate
-Added null-argument validation to ConcurrentCardinalityEstimator.Add(string) and Add(byte[]) for parity with CardinalityEstimator</PackageReleaseNotes>
+Added null-argument validation to ConcurrentCardinalityEstimator.Add(string) and Add(byte[]) for parity with CardinalityEstimator
+Compute m via bit shift (1 &lt;&lt; bitsPerIndex) instead of (int)Math.Pow(2, bitsPerIndex) in constructors</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
