@@ -694,6 +694,8 @@ namespace CardinalityEstimation.Test
             for (int i = 0; i < 5; i++) a.Add($"a_{i}");
             for (int i = 0; i < 200; i++) b.Add($"b_{i}");
             Assert.False(a.Equals(b));
+        }
+
         // Regression tests for the direct-count storage. Previously backed by ConcurrentBag<ulong>,
         // which permits duplicates and forced every Add/Count/Merge/Equals path to call .Distinct()
         // (allocating + O(n)). The storage is now a ConcurrentDictionary<ulong, byte> used as a
