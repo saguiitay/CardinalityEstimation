@@ -696,17 +696,6 @@ namespace CardinalityEstimation
                 return new ConcurrentCardinalityEstimator(estimatorList[0]);
             }
 
-            // Use a divide-and-conquer approach for parallel merging
-            ParallelQuery<ConcurrentCardinalityEstimator> parallelOptions;
-            if (parallelismDegree.HasValue)
-            {
-                parallelOptions = estimatorList.AsParallel().WithDegreeOfParallelism(parallelismDegree.Value);
-            }
-            else
-            {
-                parallelOptions = estimatorList.AsParallel();
-            }
-
             // Merge in batches to reduce memory pressure
             const int batchSize = 8;
             var batches = estimatorList
@@ -715,7 +704,13 @@ namespace CardinalityEstimation
                 .Select(g => g.Select(x => x.estimator).ToList())
                 .ToList();
 
-            var batchResults = batches.AsParallel()
+            ParallelQuery<List<ConcurrentCardinalityEstimator>> batchQuery = batches.AsParallel();
+            if (parallelismDegree.HasValue)
+            {
+                batchQuery = batchQuery.WithDegreeOfParallelism(parallelismDegree.Value);
+            }
+
+            var batchResults = batchQuery
                 .Select(batch =>
                 {
                     var result = new ConcurrentCardinalityEstimator(batch[0]);
