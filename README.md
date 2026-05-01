@@ -169,6 +169,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Fixed `ConcurrentCardinalityEstimator` span-delegate constructor silently discarding the supplied delegate.
 - Added null-argument validation to `ConcurrentCardinalityEstimator.Add(string)` and `Add(byte[])` for parity with `CardinalityEstimator`.
 - Compute `m` via bit shift (`1 << bitsPerIndex`) instead of `(int)Math.Pow(2, bitsPerIndex)` in constructors.
+- Documented the intentionally empty version-3 branch in `CardinalityEstimatorSerializer.Read`.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
