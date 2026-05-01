@@ -8,7 +8,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - ? Efficient sparse/dense representation switching
 - ? Direct counting for exact results on small sets (~100 elements)
 - ? Binary serialization support
-- ? Multi-target framework support (.NET 8, .NET 9)
+- ? Multi-target framework support (.NET 8, .NET 10)
 - ? Comprehensive test coverage
 - ? Multiple hash function support (Murmur3, FNV-1a, XxHash128)
 - ? **Thread-safe concurrent operations with `ConcurrentCardinalityEstimator`**
@@ -117,7 +117,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 
 **Implementation Summary:**
 - **Memory Efficiency**: Modern memory types reduce allocations and improve performance
-- **Cross-Platform**: Compatible with all .NET target frameworks (.NET 8, .NET 9)
+- **Cross-Platform**: Compatible with all .NET target frameworks (.NET 8, .NET 10)
 - **Performance**: Zero-allocation scenarios for high-throughput applications
 
 ## Medium Priority Improvements
@@ -305,7 +305,7 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 - **Accuracy:** Support for algorithms with 10% better accuracy than current HLL
 - **Usability:** Reduce lines of code needed for common scenarios by 50%
 - **Reliability:** Achieve 99.9% uptime in concurrent scenarios ? (Achieved with thread-safe implementation)
-- **Compatibility:** Support for all LTS .NET versions with no breaking changes ? (Supports .NET 8, .NET 9)
+- **Compatibility:** Support for all LTS .NET versions with no breaking changes ? (Supports .NET 8, .NET 10)
 
 ## Recent Achievements (December 2024)
 

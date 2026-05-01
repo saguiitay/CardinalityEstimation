@@ -158,6 +158,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 ## Release Notes
 
 ### 1.15.0
+- Switched target frameworks from `net8.0` / `net9.0` to `net8.0` / `net10.0`.
 - Hardened `CardinalityEstimatorSerializer` against denial-of-service via a maliciously crafted input stream: `bitsPerIndex` and all length-prefixed counts (direct / sparse / dense) are now validated before any allocation.
 
 ### 1.14.0
@@ -170,7 +171,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Optimized `GetSigma` on .NET 8.
 
 ### 1.12.0
-- Targets `net8.0` and `net9.0`; dropped support for end-of-life .NET versions.
+- Targets `net8.0` and `net10.0`; dropped support for end-of-life .NET versions.
 - Added the `CardinalityEstimation.Benchmark` project (BenchmarkDotNet).
 - Made the hashing classes (`Murmur3`, `Fnv1A`) public.
 

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+        <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
         <Configurations>Debug;Release;Release-Signed</Configurations>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
@@ -14,7 +14,8 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Copyright>Copyright © Sagui Itay 2022</Copyright>
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
-        <PackageReleaseNotes>Hardened CardinalityEstimatorSerializer against DoS via maliciously crafted input (validates bitsPerIndex and all length-prefixed counts before allocating)</PackageReleaseNotes>
+        <PackageReleaseNotes>Hardened CardinalityEstimatorSerializer against DoS via maliciously crafted input (validates bitsPerIndex and all length-prefixed counts before allocating)
+Switched target frameworks from net8.0/net9.0 to net8.0/net10.0</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
