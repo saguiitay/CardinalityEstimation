@@ -434,5 +434,26 @@ namespace CardinalityEstimation.Test
                 estimator.Dispose();
             }
         }
+
+        // ---------------------------------------------------------------------
+        // Coverage-gap tests.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void ParallelAdd_UnknownPartitionStrategy_Throws()
+        {
+            // The private CreatePartitioner has a default switch arm that throws
+            // ArgumentException when given an undefined enum value.
+            var estimators = CardinalityEstimatorExtensions.CreateMultiple(count: 2);
+            try
+            {
+                Assert.Throws<ArgumentException>(() =>
+                    estimators.ParallelAdd(new[] { "a", "b", "c" }, (PartitionStrategy)999));
+            }
+            finally
+            {
+                foreach (var e in estimators) e.Dispose();
+            }
+        }
     }
 }

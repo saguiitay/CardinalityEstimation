@@ -505,6 +505,195 @@ namespace CardinalityEstimation.Test
             }
         }
 
+        // ---------------------------------------------------------------------
+        // Coverage-gap tests: exercise previously-uncovered concurrent estimator
+        // paths (null-arg validation, copy ctors, Merge variants, ToCardinalityEstimator,
+        // static Merge/ParallelMerge edge cases, Equals branches).
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Constructor_FromNullCardinalityEstimator_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => new ConcurrentCardinalityEstimator((CardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Constructor_FromNullConcurrentCardinalityEstimator_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => new ConcurrentCardinalityEstimator((ConcurrentCardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Constructor_CopyFromConcurrent_PreservesContent()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 25; i++) a.Add($"x_{i}");
+
+            using var b = new ConcurrentCardinalityEstimator(a);
+
+            Assert.Equal(a.Count(), b.Count());
+            Assert.Equal(a.CountAdditions, b.CountAdditions);
+        }
+
+        [Fact]
+        public void Coverage_Merge_NullConcurrentOther_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            Assert.Throws<ArgumentNullException>(() => a.Merge((ConcurrentCardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Coverage_Merge_DifferentBitsPerIndex_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 12);
+            Assert.Throws<ArgumentOutOfRangeException>(() => a.Merge(b));
+        }
+
+        [Fact]
+        public void Merge_NullCardinalityEstimator_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            Assert.Throws<ArgumentNullException>(() => a.Merge((CardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Merge_CardinalityEstimatorDifferentBitsPerIndex_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 12);
+            Assert.Throws<ArgumentOutOfRangeException>(() => a.Merge(b));
+        }
+
+        [Fact]
+        public void Merge_FromCardinalityEstimator_Succeeds()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) a.Add($"a_{i}");
+
+            var b = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) b.Add($"b_{i}");
+
+            a.Merge(b);
+            Assert.Equal(20UL, a.Count());
+        }
+
+        [Fact]
+        public void ToCardinalityEstimator_PreservesCount()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) a.Add($"x_{i}");
+
+            var snapshot = a.ToCardinalityEstimator();
+            Assert.Equal(10UL, snapshot.Count());
+        }
+
+        [Fact]
+        public void StaticMerge_NullEnumerable_ReturnsNull()
+        {
+            Assert.Null(ConcurrentCardinalityEstimator.Merge((IEnumerable<ConcurrentCardinalityEstimator>)null));
+        }
+
+        [Fact]
+        public void StaticMerge_AllNullEntries_ReturnsNull()
+        {
+            var result = ConcurrentCardinalityEstimator.Merge(new ConcurrentCardinalityEstimator[] { null, null });
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void StaticMerge_SkipsNullEntries_AndMergesRest()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 14);
+            a.Add("a");
+            b.Add("b");
+
+            using var merged = ConcurrentCardinalityEstimator.Merge(new[] { null, a, null, b, null });
+            Assert.NotNull(merged);
+            Assert.Equal(2UL, merged.Count());
+        }
+
+        [Fact]
+        public void StaticParallelMerge_NullEnumerable_ReturnsNull()
+        {
+            Assert.Null(ConcurrentCardinalityEstimator.ParallelMerge(null));
+        }
+
+        [Fact]
+        public void StaticParallelMerge_AllNullEntries_ReturnsNull()
+        {
+            var result = ConcurrentCardinalityEstimator.ParallelMerge(new ConcurrentCardinalityEstimator[] { null, null });
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void StaticParallelMerge_SingleEstimator_ReturnsCopy()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 5; i++) a.Add($"v_{i}");
+
+            using var merged = ConcurrentCardinalityEstimator.ParallelMerge(new[] { a });
+            Assert.NotNull(merged);
+            Assert.Equal(5UL, merged.Count());
+        }
+
+        [Fact]
+        public void StaticParallelMerge_MismatchedBitsPerIndex_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 12);
+
+            Assert.Throws<ArgumentException>(() => ConcurrentCardinalityEstimator.ParallelMerge(new[] { a, b }));
+        }
+
+        [Fact]
+        public void StaticParallelMerge_WithDegree_MergesAll()
+        {
+            var estimators = new ConcurrentCardinalityEstimator[4];
+            try
+            {
+                for (int i = 0; i < estimators.Length; i++)
+                {
+                    estimators[i] = new ConcurrentCardinalityEstimator(b: 14);
+                    for (int j = 0; j < 10; j++) estimators[i].Add($"e{i}_v{j}");
+                }
+
+                using var merged = ConcurrentCardinalityEstimator.ParallelMerge(estimators, parallelismDegree: 2);
+                Assert.NotNull(merged);
+                Assert.Equal(40UL, merged.Count());
+            }
+            finally
+            {
+                foreach (var e in estimators) e?.Dispose();
+            }
+        }
+
+        [Fact]
+        public void Equals_NullOther_ReturnsFalse()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            Assert.False(a.Equals((ConcurrentCardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Coverage_Equals_DifferentBitsPerIndex_ReturnsFalse()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 12);
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_OneDirectCountOneNot_ReturnsFalse()
+        {
+            // ConcurrentCardinalityEstimator's public ctor doesn't expose useDirectCounting,
+            // but adding more than the threshold tips one out of the direct-count path.
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 5; i++) a.Add($"a_{i}");
+            for (int i = 0; i < 200; i++) b.Add($"b_{i}");
+            Assert.False(a.Equals(b));
         // Regression tests for the direct-count storage. Previously backed by ConcurrentBag<ulong>,
         // which permits duplicates and forced every Add/Count/Merge/Equals path to call .Distinct()
         // (allocating + O(n)). The storage is now a ConcurrentDictionary<ulong, byte> used as a

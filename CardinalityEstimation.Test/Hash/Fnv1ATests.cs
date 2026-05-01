@@ -25,6 +25,7 @@
 
 namespace CardinalityEstimation.Test.Hash
 {
+    using System;
     using CardinalityEstimation.Hash;
     using Xunit;
 
@@ -37,6 +38,12 @@ namespace CardinalityEstimation.Test.Hash
             Assert.Equal(14695981039346656037, Fnv1A.GetHashCode(new byte[0]));
             Assert.Equal(1109817072422714760UL, Fnv1A.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
             Assert.Equal(11047178588169845073UL, Fnv1A.GetHashCode(new byte[] { 255, 255, 255, 255 }));
+        }
+
+        [Fact]
+        public void Fnv1A_NullBytes_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => Fnv1A.GetHashCode(null));
         }
     }
 }
