@@ -159,7 +159,12 @@ namespace CardinalityEstimation
         /// All estimators will use the same hash function for compatibility.
         /// </param>
         /// <param name="b">
-        /// Accuracy parameter for all estimators. Must be in the range [4, 16].
+        /// Number of bits determining accuracy and memory consumption for all estimators, in the range [4, 16]
+        /// (higher = greater accuracy and memory usage). For large cardinalities, the standard error is
+        /// 1.04 * 2^(-b/2), and the memory consumption is bounded by 2^b kilobytes. The default value of 14
+        /// typically yields 3% error or less across the entire range of cardinalities (usually much less),
+        /// and uses up to ~16kB of memory. b=4 yields less than ~100% error and uses less than 1kB.
+        /// b=16 uses up to ~64kB and usually yields 1% error or less.
         /// All estimators will have the same accuracy to ensure they can be merged.
         /// </param>
         /// <param name="useDirectCounting">

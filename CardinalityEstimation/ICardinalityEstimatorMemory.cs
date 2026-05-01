@@ -28,36 +28,61 @@ using System;
 namespace CardinalityEstimation
 {
     /// <summary>
-    /// Advanced generic cardinality estimator interface with performance optimizations
+    /// Advanced generic cardinality estimator interface with performance optimizations.
     /// </summary>
+    /// <remarks>
+    /// The <c>Span&lt;byte&gt;</c> and <c>ReadOnlySpan&lt;byte&gt;</c> overloads are the
+    /// true zero-allocation entry points: the implementation hashes the data directly
+    /// without copying it to the heap. The <c>Memory&lt;byte&gt;</c> and
+    /// <c>ReadOnlyMemory&lt;byte&gt;</c> overloads avoid the byte-array allocation of
+    /// the legacy <c>byte[]</c> path, but the underlying <see cref="System.Memory{T}"/>
+    /// itself may already reference heap-allocated storage (for example, when it wraps
+    /// a managed array). For the lowest-allocation hot paths, prefer the
+    /// <see cref="System.Span{T}"/> / <see cref="System.ReadOnlySpan{T}"/> overloads
+    /// (e.g. backed by <c>stackalloc</c> or a pooled buffer's span).
+    /// </remarks>
     public interface ICardinalityEstimatorMemory
     {
         /// <summary>
-        /// Add data from a Span&lt;byte&gt; with zero allocations
+        /// Add data from a Span&lt;byte&gt; without allocating; the data is hashed in place.
         /// </summary>
         /// <param name="data">The byte data to add</param>
         /// <returns>True if estimator's state was modified. False otherwise</returns>
         bool Add(Span<byte> data);
 
         /// <summary>
-        /// Add data from a ReadOnlySpan&lt;byte&gt; with zero allocations
+        /// Add data from a ReadOnlySpan&lt;byte&gt; without allocating; the data is hashed in place.
         /// </summary>
         /// <param name="data">The byte data to add</param>
         /// <returns>True if estimator's state was modified. False otherwise</returns>
         bool Add(ReadOnlySpan<byte> data);
 
         /// <summary>
-        /// Add data from Memory&lt;byte&gt; with optimized allocation patterns
+        /// Add data from a Memory&lt;byte&gt;.
         /// </summary>
         /// <param name="data">The byte data to add</param>
         /// <returns>True if estimator's state was modified. False otherwise</returns>
+        /// <remarks>
+        /// The hash itself is computed without additional allocation, but
+        /// <see cref="System.Memory{T}"/> can reference heap-allocated storage. For a
+        /// truly allocation-free call site (for example over a <c>stackalloc</c> buffer),
+        /// prefer the <see cref="Add(System.Span{byte})"/> or
+        /// <see cref="Add(System.ReadOnlySpan{byte})"/> overloads.
+        /// </remarks>
         bool Add(Memory<byte> data);
 
         /// <summary>
-        /// Add data from ReadOnlyMemory&lt;byte&gt; with optimized allocation patterns
+        /// Add data from a ReadOnlyMemory&lt;byte&gt;.
         /// </summary>
         /// <param name="data">The byte data to add</param>
         /// <returns>True if estimator's state was modified. False otherwise</returns>
+        /// <remarks>
+        /// The hash itself is computed without additional allocation, but
+        /// <see cref="System.ReadOnlyMemory{T}"/> can reference heap-allocated storage.
+        /// For a truly allocation-free call site (for example over a <c>stackalloc</c>
+        /// buffer), prefer the <see cref="Add(System.Span{byte})"/> or
+        /// <see cref="Add(System.ReadOnlySpan{byte})"/> overloads.
+        /// </remarks>
         bool Add(ReadOnlyMemory<byte> data);
     }
 }
