@@ -26,6 +26,7 @@
 namespace CardinalityEstimation
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
@@ -48,13 +49,6 @@ namespace CardinalityEstimation
         ICardinalityEstimator<long>, ICardinalityEstimator<ulong>, ICardinalityEstimator<float>, ICardinalityEstimator<double>,
         ICardinalityEstimator<byte[]>, ICardinalityEstimatorMemory, IEquatable<ConcurrentCardinalityEstimator>, IDisposable
     {
-        #region Private consts
-        /// <summary>
-        /// Max number of elements to hold in the direct representation
-        /// </summary>
-        private const int DirectCounterMaxElements = 100;
-        #endregion
-
         #region Private fields
         /// <summary>
         /// Number of bits for indexing HLL sub-streams - the number of estimators is 2^bitsPerIndex
@@ -102,9 +96,12 @@ namespace CardinalityEstimation
         private volatile bool isSparse;
 
         /// <summary>
-        /// Set for direct counting of elements (thread-safe)
+        /// Set for direct counting of elements (thread-safe). Used as a concurrent hash set:
+        /// only the keys matter; the byte value is a placeholder. This gives O(1) Add/Contains/Count
+        /// without the per-call allocations and O(n) deduplication that a <see cref="ConcurrentBag{T}"/>
+        /// would require (since a bag permits duplicates).
         /// </summary>
-        private volatile ConcurrentBag<ulong> directCount;
+        private volatile ConcurrentDictionary<ulong, byte> directCount;
 
         /// <summary>
         /// Hash function used
@@ -125,6 +122,20 @@ namespace CardinalityEstimation
         private readonly ReaderWriterLockSlim lockSlim;
 
         /// <summary>
+        /// Monotonically-increasing per-instance ID used to impose a total order on instances
+        /// when acquiring two locks together (e.g., in <see cref="Merge"/> and <see cref="Equals(object)"/>).
+        /// Using a unique ID instead of <see cref="object.GetHashCode"/> guarantees the ordering is
+        /// strict (never equal for two distinct instances) and therefore deadlock-free.
+        /// </summary>
+        [NonSerialized]
+        private readonly long instanceId;
+
+        /// <summary>
+        /// Source for <see cref="instanceId"/> values; incremented atomically per allocation.
+        /// </summary>
+        private static long instanceIdCounter;
+
+        /// <summary>
         /// Tracks if this instance has been disposed
         /// </summary>
         private volatile bool disposed;
@@ -143,11 +154,11 @@ namespace CardinalityEstimation
         /// error or less
         /// </param>
         /// <param name="useDirectCounting">
-        /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
+        /// True if direct count should be used for up to <see cref="HllConstants.DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
         public ConcurrentCardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
-            : this(hashFunction, CreateEmptyState(b, useDirectCounting))
+            : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting))
         { }
 
         /// <summary>
@@ -161,14 +172,20 @@ namespace CardinalityEstimation
             var state = other.GetState();
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
-            m = (int)Math.Pow(2, bitsPerIndex);
-            alphaM = GetAlphaM(m);
-            subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+            m = 1 << bitsPerIndex;
+            alphaM = HllConstants.GetAlphaM(m);
+            subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+            instanceId = Interlocked.Increment(ref instanceIdCounter);
 
-            // Init the hash function - use default since we can't get it from the other estimator
-            hashFunction = ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
+            // Preserve the source estimator's hash functions so the conversion is lossless even
+            // when a non-default hash (e.g. Murmur3, FNV-1a, or a custom delegate) was supplied
+            // to the original CardinalityEstimator.
+            hashFunction = other.HashFunction
+                ?? ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
+            hashFunctionSpan = other.HashFunctionSpan
+                ?? ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
 
             sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -191,11 +208,12 @@ namespace CardinalityEstimation
                 var state = other.GetStateInternal();
                 bitsPerIndex = state.BitsPerIndex;
                 bitsForHll = (byte)(64 - bitsPerIndex);
-                m = (int)Math.Pow(2, bitsPerIndex);
-                alphaM = GetAlphaM(m);
-                subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+                m = 1 << bitsPerIndex;
+                alphaM = HllConstants.GetAlphaM(m);
+                subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
                 lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+            instanceId = Interlocked.Increment(ref instanceIdCounter);
                 hashFunction = other.hashFunction;
                 sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -235,10 +253,14 @@ namespace CardinalityEstimation
         {
             // Init the hash function
             this.hashFunctionSpan = hashFunctionSpan;
-            if (this.hashFunction == null)
+            if (this.hashFunctionSpan == null)
             {
                 this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
                 this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+            else
+            {
+                this.hashFunction = (x) => hashFunctionSpan(x);
             }
         }
 
@@ -249,11 +271,12 @@ namespace CardinalityEstimation
         {
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
-            m = (int)Math.Pow(2, bitsPerIndex);
-            alphaM = GetAlphaM(m);
-            subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+            m = 1 << bitsPerIndex;
+            alphaM = HllConstants.GetAlphaM(m);
+            subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+            instanceId = Interlocked.Increment(ref instanceIdCounter);
 
             sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -265,7 +288,11 @@ namespace CardinalityEstimation
             // Init the direct count
             if (state.DirectCount != null)
             {
-                directCount = new ConcurrentBag<ulong>(state.DirectCount);
+                directCount = new ConcurrentDictionary<ulong, byte>();
+                foreach (ulong element in state.DirectCount)
+                {
+                    directCount.TryAdd(element, 0);
+                }
             }
 
             // Init the sparse representation
@@ -290,7 +317,7 @@ namespace CardinalityEstimation
                 // since we are re-initializing the object, we need to reset isSparse to true and sparse lookup
                 isSparse = true;
                 lookupSparse = new ConcurrentDictionary<ushort, byte>();
-                foreach (ulong element in directCount)
+                foreach (ulong element in directCount.Keys)
                 {
                     AddElementHashInternal(element);
                 }
@@ -300,6 +327,22 @@ namespace CardinalityEstimation
 
         #region Public properties
         public ulong CountAdditions => (ulong)Interlocked.Read(ref countAdditions);
+
+        /// <summary>
+        /// Gets the byte-array hash function used by this estimator. Returned so that callers
+        /// (e.g. <see cref="ToCardinalityEstimator"/>) can preserve the original hash function
+        /// across conversions and copies, making such operations lossless even when a non-default
+        /// hash was supplied. Safe to read without a lock — the field is set once at construction
+        /// and never reassigned afterwards.
+        /// </summary>
+        public GetHashCodeDelegate HashFunction => hashFunction;
+
+        /// <summary>
+        /// Gets the span hash function used by this estimator (the zero-allocation path used by
+        /// the <c>Span&lt;byte&gt;</c> / <c>ReadOnlySpan&lt;byte&gt;</c> / <c>Memory&lt;byte&gt;</c>
+        /// overloads). Exposed for the same lossless-conversion reason as <see cref="HashFunction"/>.
+        /// </summary>
+        public GetHashCodeSpanDelegate HashFunctionSpan => hashFunctionSpan;
         #endregion
 
         #region Public methods
@@ -307,10 +350,26 @@ namespace CardinalityEstimation
         /// Add an element of type <see cref="string"/>
         /// </summary>
         /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="element"/> is null</exception>
         public bool Add(string element)
         {
+            if (element == null)
+                throw new ArgumentNullException(nameof(element));
+
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(Encoding.UTF8.GetBytes(element));
+
+            ulong hashCode;
+            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= HllConstants.StackallocByteThreshold)
+            {
+                Span<byte> bytes = stackalloc byte[HllConstants.StackallocByteThreshold];
+                int written = Encoding.UTF8.GetBytes(element, bytes);
+                hashCode = hashFunctionSpan(bytes.Slice(0, written));
+            }
+            else
+            {
+                hashCode = hashFunctionSpan(Encoding.UTF8.GetBytes(element));
+            }
+
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -323,7 +382,9 @@ namespace CardinalityEstimation
         public bool Add(int element)
         {
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -336,7 +397,9 @@ namespace CardinalityEstimation
         public bool Add(uint element)
         {
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -349,7 +412,9 @@ namespace CardinalityEstimation
         public bool Add(long element)
         {
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(long)];
+            BinaryPrimitives.WriteInt64LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -362,7 +427,9 @@ namespace CardinalityEstimation
         public bool Add(ulong element)
         {
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(ulong)];
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -375,7 +442,9 @@ namespace CardinalityEstimation
         public bool Add(float element)
         {
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(float)];
+            BinaryPrimitives.WriteSingleLittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -388,7 +457,9 @@ namespace CardinalityEstimation
         public bool Add(double element)
         {
             ThrowIfDisposed();
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(double)];
+            BinaryPrimitives.WriteDoubleLittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             Interlocked.Increment(ref countAdditions);
             return changed;
@@ -398,8 +469,12 @@ namespace CardinalityEstimation
         /// Add an element of type <see cref="byte[]"/>
         /// </summary>
         /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="element"/> is null</exception>
         public bool Add(byte[] element)
         {
+            if (element == null)
+                throw new ArgumentNullException(nameof(element));
+
             ThrowIfDisposed();
             ulong hashCode = hashFunction(element);
             bool changed = AddElementHash(hashCode);
@@ -476,7 +551,7 @@ namespace CardinalityEstimation
                 // If only a few elements have been seen, return the exact count
                 if (directCount != null)
                 {
-                    return (ulong)directCount.Distinct().Count();
+                    return (ulong)directCount.Count;
                 }
 
                 return ComputeCountInternal();
@@ -507,8 +582,9 @@ namespace CardinalityEstimation
                     "Cannot merge ConcurrentCardinalityEstimator instances with different accuracy/map sizes");
             }
 
-            // Lock both instances in a consistent order to prevent deadlocks
-            var lockOrder = GetHashCode() < other.GetHashCode() ? new[] { this, other } : new[] { other, this };
+            // Lock both instances in a consistent order to prevent deadlocks. Use the unique
+            // per-instance ID rather than GetHashCode() so the ordering is strict and total.
+            var lockOrder = instanceId < other.instanceId ? new[] { this, other } : new[] { other, this };
             
             lockOrder[0].lockSlim.EnterWriteLock();
             try
@@ -573,7 +649,7 @@ namespace CardinalityEstimation
             try
             {
                 var state = GetStateInternal();
-                return new CardinalityEstimator(hashFunction, state);
+                return new CardinalityEstimator(hashFunction, hashFunctionSpan, state);
             }
             finally
             {
@@ -659,17 +735,6 @@ namespace CardinalityEstimation
                 return new ConcurrentCardinalityEstimator(estimatorList[0]);
             }
 
-            // Use a divide-and-conquer approach for parallel merging
-            ParallelQuery<ConcurrentCardinalityEstimator> parallelOptions;
-            if (parallelismDegree.HasValue)
-            {
-                parallelOptions = estimatorList.AsParallel().WithDegreeOfParallelism(parallelismDegree.Value);
-            }
-            else
-            {
-                parallelOptions = estimatorList.AsParallel();
-            }
-
             // Merge in batches to reduce memory pressure
             const int batchSize = 8;
             var batches = estimatorList
@@ -678,7 +743,13 @@ namespace CardinalityEstimation
                 .Select(g => g.Select(x => x.estimator).ToList())
                 .ToList();
 
-            var batchResults = batches.AsParallel()
+            ParallelQuery<List<ConcurrentCardinalityEstimator>> batchQuery = batches.AsParallel();
+            if (parallelismDegree.HasValue)
+            {
+                batchQuery = batchQuery.WithDegreeOfParallelism(parallelismDegree.Value);
+            }
+
+            var batchResults = batchQuery
                 .Select(batch =>
                 {
                     var result = new ConcurrentCardinalityEstimator(batch[0]);
@@ -722,7 +793,7 @@ namespace CardinalityEstimation
             HashSet<ulong> directCountSet = null;
             if (directCount != null)
             {
-                directCountSet = directCount.Distinct().ToHashSet();
+                directCountSet = new HashSet<ulong>(directCount.Keys);
             }
 
             Dictionary<ushort, byte> sparseLookup = null;
@@ -740,50 +811,6 @@ namespace CardinalityEstimation
                 LookupSparse = sparseLookup,
                 CountAdditions = CountAdditions,
             };
-        }
-
-        /// <summary>
-        /// Creates state for an empty ConcurrentCardinalityEstimator
-        /// </summary>
-        private static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount)
-        {
-            if (b < 4 || b > 16)
-            {
-                throw new ArgumentOutOfRangeException(nameof(b), b, "Accuracy out of range, legal range is 4 <= BitsPerIndex <= 16");
-            }
-
-            return new CardinalityEstimatorState
-            {
-                BitsPerIndex = b,
-                DirectCount = useDirectCount ? new HashSet<ulong>() : null,
-                IsSparse = true,
-                LookupSparse = new Dictionary<ushort, byte>(),
-                LookupDense = null,
-                CountAdditions = 0,
-            };
-        }
-
-        private double GetSubAlgorithmSelectionThreshold(int bits)
-        {
-            switch (bits)
-            {
-                case 4: return 10;
-                case 5: return 20;
-                case 6: return 40;
-                case 7: return 80;
-                case 8: return 220;
-                case 9: return 400;
-                case 10: return 900;
-                case 11: return 1800;
-                case 12: return 3100;
-                case 13: return 6500;
-                case 14: return 11500;
-                case 15: return 20000;
-                case 16: return 50000;
-                case 17: return 120000;
-                case 18: return 350000;
-            }
-            throw new ArgumentOutOfRangeException(nameof(bits), "Unexpected number of bits (should never happen)");
         }
 
         private bool AddElementHash(ulong hashCode)
@@ -805,18 +832,16 @@ namespace CardinalityEstimation
             
             if (directCount != null)
             {
-                var countBefore = directCount.Distinct().Count();
-                directCount.Add(hashCode);
-                var countAfter = directCount.Distinct().Count();
-                changed = countAfter > countBefore;
+                changed = directCount.TryAdd(hashCode, 0);
+                int countAfter = directCount.Count;
 
-                if (countAfter > DirectCounterMaxElements)
+                if (countAfter > HllConstants.DirectCounterMaxElements)
                 {
                     lockSlim.EnterWriteLock();
                     try
                     {
                         // Double-check after acquiring write lock
-                        if (directCount != null && directCount.Distinct().Count() > DirectCounterMaxElements)
+                        if (directCount != null && directCount.Count > HllConstants.DirectCounterMaxElements)
                         {
                             directCount = null;
                             changed = true;
@@ -903,7 +928,7 @@ namespace CardinalityEstimation
                 foreach (KeyValuePair<ushort, byte> kvp in lookupSparse)
                 {
                     byte sigma = kvp.Value;
-                    zInverse += Math.Pow(2, -sigma);
+                    zInverse += HllConstants.InversePowersOfTwo[sigma];
                 }
                 v = m - lookupSparse.Count;
                 zInverse += m - lookupSparse.Count;
@@ -914,7 +939,7 @@ namespace CardinalityEstimation
                 for (var i = 0; i < m; i++)
                 {
                     byte sigma = lookupDense[i];
-                    zInverse += Math.Pow(2, -sigma);
+                    zInverse += HllConstants.InversePowersOfTwo[sigma];
                     if (sigma == 0)
                     {
                         v++;
@@ -1001,13 +1026,12 @@ namespace CardinalityEstimation
                 // Other instance is using direct counter. If this instance is also using direct counter, merge them.
                 if (directCount != null)
                 {
-                    var otherDistinct = other.directCount.Distinct().ToList();
-                    foreach (var item in otherDistinct)
+                    foreach (var key in other.directCount.Keys)
                     {
-                        directCount.Add(item);
+                        directCount.TryAdd(key, 0);
                     }
-                    
-                    if (directCount.Distinct().Count() > DirectCounterMaxElements)
+
+                    if (directCount.Count > HllConstants.DirectCounterMaxElements)
                     {
                         directCount = null;
                     }
@@ -1017,21 +1041,6 @@ namespace CardinalityEstimation
             {
                 // Other instance is not using direct counter, make sure this instance doesn't either
                 directCount = null;
-            }
-        }
-
-        private double GetAlphaM(int m)
-        {
-            switch (m)
-            {
-                case 16:
-                    return 0.673;
-                case 32:
-                    return 0.697;
-                case 64:
-                    return 0.709;
-                default:
-                    return 0.7213 / (1 + (1.079 / m));
             }
         }
 
@@ -1084,8 +1093,9 @@ namespace CardinalityEstimation
                 return false;
             }
 
-            // For thread safety, we need to lock both instances
-            var lockOrder = GetHashCode() < other.GetHashCode() ? new[] { this, other } : new[] { other, this };
+            // For thread safety, we need to lock both instances. Use the unique per-instance ID
+            // rather than GetHashCode() so the ordering is strict and total (deadlock-free).
+            var lockOrder = instanceId < other.instanceId ? new[] { this, other } : new[] { other, this };
             
             lockOrder[0].lockSlim.EnterReadLock();
             try
@@ -1138,9 +1148,7 @@ namespace CardinalityEstimation
             }
             if (directCount != null)
             {
-                var thisDistinct = directCount.Distinct().ToHashSet();
-                var otherDistinct = other.directCount.Distinct().ToHashSet();
-                if (thisDistinct.Count != otherDistinct.Count)
+                if (directCount.Count != other.directCount.Count)
                 {
                     return false;
                 }
@@ -1159,11 +1167,12 @@ namespace CardinalityEstimation
 
             if (directCount != null)
             {
-                var thisDistinct = directCount.Distinct().ToHashSet();
-                var otherDistinct = other.directCount.Distinct().ToHashSet();
-                if (!thisDistinct.SetEquals(otherDistinct))
+                foreach (var key in directCount.Keys)
                 {
-                    return false;
+                    if (!other.directCount.ContainsKey(key))
+                    {
+                        return false;
+                    }
                 }
             }
 

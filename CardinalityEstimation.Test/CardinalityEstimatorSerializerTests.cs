@@ -30,7 +30,9 @@ namespace CardinalityEstimation.Test
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Runtime.Serialization;
     using System.Runtime.Serialization.Formatters.Binary;
+    using System.Text;
     using CardinalityEstimation.Hash;
     using Xunit;
     using Xunit.Abstractions;
@@ -441,6 +443,226 @@ namespace CardinalityEstimation.Test
             {
                 Assert.True(data.LookupDense.SequenceEqual(data2.LookupDense));
             }
+        }
+
+        // Header for current format (major=3, minor=1) with the given bitsPerIndex and flags.
+        private static void WriteHeader(BinaryWriter bw, int bitsPerIndex, byte flags)
+        {
+            bw.Write((ushort)CardinalityEstimatorSerializer.DataFormatMajorVersion);
+            bw.Write((ushort)CardinalityEstimatorSerializer.DataFormatMinorVersion);
+            bw.Write(bitsPerIndex);
+            bw.Write(flags);
+        }
+
+        [Theory]
+        [InlineData(3)]    // below minimum
+        [InlineData(17)]   // above maximum
+        [InlineData(30)]   // attacker value: m = 2^30 ~ 1 GB
+        [InlineData(-1)]   // negative
+        public void Deserialize_RejectsOutOfRangeBitsPerIndex(int bitsPerIndex)
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex, flags: 0);
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsOversizedDirectCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 1); // isDirectCount=true
+                bw.Write(int.MaxValue);                       // attacker-supplied count
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsNegativeDirectCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 1); // isDirectCount=true
+                bw.Write(-1);
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsOversizedSparseCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 2); // isSparse=true
+                bw.Write(int.MaxValue);                       // attacker-supplied count
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsOversizedDenseCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 0); // dense
+                bw.Write(int.MaxValue);                       // attacker-supplied count != m
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsDenseCountThatDoesNotMatchM()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 0); // dense, m = 16384
+                bw.Write(16383);                               // off by one
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        // ---------------------------------------------------------------------
+        // Coverage-gap tests: exercise previously-uncovered serializer paths
+        // (null-arg validation, future-major-version, truncated dense payload,
+        // legacy v2 deserialize with hashFunction == null).
+        // ---------------------------------------------------------------------
+
+        private static readonly CardinalityEstimatorSerializer CoverageSerializer = new CardinalityEstimatorSerializer();
+
+        [Fact]
+        public void Serialize_OneArgOverload_WritesData()
+        {
+            // The two-arg Serialize(stream, est) wrapper just delegates to the three-arg form
+            // with leaveOpen: false, so we capture the bytes via ToArray before disposal.
+            var hll = new CardinalityEstimator();
+            hll.Add("a");
+            var ms = new MemoryStream();
+            CoverageSerializer.Serialize(ms, hll);
+            Assert.True(ms.ToArray().Length > 0);
+        }
+
+        [Fact]
+        public void Serialize_NullStream_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => CoverageSerializer.Serialize(null, hll, false));
+        }
+
+        [Fact]
+        public void Serialize_NullEstimator_Throws()
+        {
+            using var ms = new MemoryStream();
+            Assert.Throws<ArgumentNullException>(() => CoverageSerializer.Serialize(ms, null, false));
+        }
+
+        [Fact]
+        public void Write_NullWriter_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => CoverageSerializer.Write(null, hll));
+        }
+
+        [Fact]
+        public void Write_NullEstimator_Throws()
+        {
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+            Assert.Throws<ArgumentNullException>(() => CoverageSerializer.Write(bw, null));
+        }
+
+        [Fact]
+        public void Deserialize_NullStream_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => CoverageSerializer.Deserialize(null));
+        }
+
+        [Fact]
+        public void Read_NullReader_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => CoverageSerializer.Read(null));
+        }
+
+        [Fact]
+        public void Deserialize_FutureMajorVersion_ThrowsSerializationException()
+        {
+            // Major version above the serializer's own version is unreadable.
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+            {
+                bw.Write((ushort)(CardinalityEstimatorSerializer.DataFormatMajorVersion + 1));
+                bw.Write((ushort)0);
+            }
+            ms.Position = 0;
+
+            Assert.Throws<SerializationException>(() => CoverageSerializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_TruncatedDenseLookup_ThrowsEndOfStream()
+        {
+            // bitsPerIndex=4 -> m=16. We declare a dense lookup of 16 bytes but only write 4.
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+            {
+                bw.Write((ushort)CardinalityEstimatorSerializer.DataFormatMajorVersion);
+                bw.Write((ushort)CardinalityEstimatorSerializer.DataFormatMinorVersion);
+                bw.Write(4);          // bitsPerIndex -> m = 16
+                bw.Write((byte)0);    // flags: dense (not sparse, not direct)
+                bw.Write(16);         // count == m (passes the size check)
+                bw.Write(new byte[] { 1, 2, 3, 4 }); // truncated: only 4 of the 16 bytes
+            }
+            ms.Position = 0;
+
+            Assert.Throws<EndOfStreamException>(() => CoverageSerializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_LegacyV2WithNullHashFunction_PicksHashByEmbeddedId()
+        {
+            // v2.x format embeds the hash-function id in the stream. When the caller doesn't pass
+            // a hashFunction override, the deserializer must pick one based on that embedded id
+            // (1 -> Murmur3, anything else -> FNV-1a).
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+            {
+                bw.Write((ushort)2);     // major
+                bw.Write((ushort)0);     // minor
+                bw.Write((byte)1);       // hashFunctionId = Murmur3
+                bw.Write(14);            // bitsPerIndex
+                bw.Write((byte)2);       // flags: sparse, not direct count
+                bw.Write(0);             // sparse count
+            }
+            ms.Position = 0;
+
+            // No hashFunction passed - exercises the v2 branch that picks based on the embedded id.
+            var hll = CoverageSerializer.Deserialize(ms);
+            Assert.Equal(0UL, hll.Count());
         }
     }
 }

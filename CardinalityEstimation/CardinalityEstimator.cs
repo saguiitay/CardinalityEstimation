@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -26,6 +26,7 @@
 namespace CardinalityEstimation
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Generic;
     using System.Text;
     using Hash;
@@ -55,7 +56,7 @@ namespace CardinalityEstimation
     /// </summary>
     /// <remarks>
     /// <para>1. This implementation is not thread-safe. For thread-safe operations, use <see cref="ConcurrentCardinalityEstimator"/>.</para>
-    /// <para>2. By default, it uses the 128-bit XxHash128 hash function from .NET 9+. 
+    /// <para>2. By default, it uses the 128-bit XxHash128 hash function from System.IO.Hashing. 
     ///    For custom hash functions, provide your own delegate to the constructor.</para>
     /// <para>3. Estimation is perfect up to 100 elements, then approximate</para>
     /// <para>4. The estimator automatically switches between three different counting strategies based on the number of elements:
@@ -69,13 +70,6 @@ namespace CardinalityEstimation
         ICardinalityEstimator<byte[]>, ICardinalityEstimatorMemory,
         IEquatable<CardinalityEstimator>
     {
-
-        #region Private consts
-        /// <summary>
-        /// Max number of elements to hold in the direct representation
-        /// </summary>
-        private const int DirectCounterMaxElements = 100;
-        #endregion
 
         #region Private fields
         /// <summary>
@@ -158,7 +152,7 @@ namespace CardinalityEstimation
         /// error or less
         /// </param>
         /// <param name="useDirectCounting">
-        /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
+        /// True if direct count should be used for up to <see cref="HllConstants.DirectCounterMaxElements"/> elements.
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// Direct counting provides perfect accuracy for small sets.
         /// </param>
@@ -166,7 +160,7 @@ namespace CardinalityEstimation
         /// Thrown when <paramref name="b"/> is not in the range [4, 16].
         /// </exception>
         public CardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
-            : this(hashFunction, CreateEmptyState(b, useDirectCounting))
+            : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting))
         { }
 
         /// <summary>
@@ -199,6 +193,7 @@ namespace CardinalityEstimation
             }
             hashFunction = other.hashFunction;
             hashFunctionSpan = other.hashFunctionSpan;
+            CountAdditions = other.CountAdditions;
         }
 
         /// <summary>
@@ -247,6 +242,29 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
+        /// Creates a CardinalityEstimator preserving both the byte-array and span hash functions
+        /// supplied by the caller. Used by lossless conversions where both delegates of a source
+        /// estimator should be kept intact (instead of synthesising one from the other).
+        /// </summary>
+        /// <param name="hashFunction">Byte-array hash function. If null, a default XxHash128 delegate is created.</param>
+        /// <param name="hashFunctionSpan">Span hash function. If null, falls back to wrapping <paramref name="hashFunction"/>.</param>
+        /// <param name="state">The state to initialize the estimator with</param>
+        internal CardinalityEstimator(GetHashCodeDelegate hashFunction, GetHashCodeSpanDelegate hashFunctionSpan, CardinalityEstimatorState state)
+            : this(state)
+        {
+            if (hashFunction == null && hashFunctionSpan == null)
+            {
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+            else
+            {
+                this.hashFunction = hashFunction ?? ((x) => hashFunctionSpan(x));
+                this.hashFunctionSpan = hashFunctionSpan ?? ((x) => hashFunction(x.ToArray()));
+            }
+        }
+
+        /// <summary>
         /// Creates a CardinalityEstimator from serialized state
         /// </summary>
         /// <param name="state">The state to restore the estimator from</param>
@@ -255,9 +273,9 @@ namespace CardinalityEstimation
         {
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
-            m = (int) Math.Pow(2, bitsPerIndex);
-            alphaM = GetAlphaM(m);
-            subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+            m = 1 << bitsPerIndex;
+            alphaM = HllConstants.GetAlphaM(m);
+            subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             // Init the direct count
             directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
@@ -301,6 +319,21 @@ namespace CardinalityEstimation
         /// </summary>
         /// <value>The count of all addition operations performed</value>
         public ulong CountAdditions { get; private set; }
+
+        /// <summary>
+        /// Gets the byte-array hash function used by this estimator. Returned so that callers
+        /// (e.g. <see cref="ConcurrentCardinalityEstimator(CardinalityEstimator)"/>) can preserve
+        /// the original hash function across conversions and copies, making such operations lossless
+        /// even when a non-default hash was supplied.
+        /// </summary>
+        public GetHashCodeDelegate HashFunction => hashFunction;
+
+        /// <summary>
+        /// Gets the span hash function used by this estimator (the zero-allocation path used by the
+        /// <c>Span&lt;byte&gt;</c> / <c>ReadOnlySpan&lt;byte&gt;</c> / <c>Memory&lt;byte&gt;</c> overloads).
+        /// Exposed for the same lossless-conversion reason as <see cref="HashFunction"/>.
+        /// </summary>
+        public GetHashCodeSpanDelegate HashFunctionSpan => hashFunctionSpan;
         #endregion
 
         #region Public methods
@@ -314,8 +347,22 @@ namespace CardinalityEstimation
         {
             if (element == null)
                 throw new ArgumentNullException(nameof(element));
-                
-            ulong hashCode = hashFunction(Encoding.UTF8.GetBytes(element));
+
+            ulong hashCode;
+            // Avoid heap-allocating a temporary byte[] for short strings by encoding into a
+            // stack buffer and hashing through the span delegate. UTF-8 is endian-independent,
+            // so the resulting bytes are identical to Encoding.UTF8.GetBytes(element).
+            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= HllConstants.StackallocByteThreshold)
+            {
+                Span<byte> bytes = stackalloc byte[HllConstants.StackallocByteThreshold];
+                int written = Encoding.UTF8.GetBytes(element, bytes);
+                hashCode = hashFunctionSpan(bytes.Slice(0, written));
+            }
+            else
+            {
+                hashCode = hashFunctionSpan(Encoding.UTF8.GetBytes(element));
+            }
+
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -328,7 +375,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(int element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -341,7 +390,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(uint element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -354,7 +405,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(long element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(long)];
+            BinaryPrimitives.WriteInt64LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -367,7 +420,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(ulong element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(ulong)];
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -380,7 +435,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(float element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(float)];
+            BinaryPrimitives.WriteSingleLittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -393,7 +450,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(double element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(double)];
+            BinaryPrimitives.WriteDoubleLittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -473,7 +532,7 @@ namespace CardinalityEstimation
         /// </summary>
         /// <returns>
         /// The estimated count of unique elements. If direct counting is enabled and fewer than
-        /// <see cref="DirectCounterMaxElements"/> elements have been added, returns the exact count.
+        /// <see cref="HllConstants.DirectCounterMaxElements"/> elements have been added, returns the exact count.
         /// Otherwise, returns an approximation using HyperLogLog or LinearCounting algorithms.
         /// </returns>
         /// <remarks>
@@ -497,7 +556,7 @@ namespace CardinalityEstimation
                 foreach (KeyValuePair<ushort, byte> kvp in lookupSparse)
                 {
                     byte sigma = kvp.Value;
-                    zInverse += Math.Pow(2, -sigma);
+                    zInverse += HllConstants.InversePowersOfTwo[sigma];
                 }
                 v = m - lookupSparse.Count;
                 zInverse += m - lookupSparse.Count;
@@ -508,7 +567,7 @@ namespace CardinalityEstimation
                 for (var i = 0; i < m; i++)
                 {
                     byte sigma = lookupDense[i];
-                    zInverse += Math.Pow(2, -sigma);
+                    zInverse += HllConstants.InversePowersOfTwo[sigma];
                     if (sigma == 0)
                     {
                         v++;
@@ -612,7 +671,7 @@ namespace CardinalityEstimation
                 if (directCount != null)
                 {
                     directCount.UnionWith(other.directCount);
-                    if (directCount.Count > DirectCounterMaxElements)
+                    if (directCount.Count > HllConstants.DirectCounterMaxElements)
                     {
                         directCount = null;
                     }
@@ -661,8 +720,10 @@ namespace CardinalityEstimation
                 {
                     result = new CardinalityEstimator(estimator);
                 }
-
-                result.Merge(estimator);
+                else
+                {
+                    result.Merge(estimator);
+                }
             }
 
             return result;
@@ -687,84 +748,6 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Creates state for an empty CardinalityEstimator with DirectCount and LookupSparse empty, LookupDense null.
-        /// </summary>
-        /// <param name="b">Number of bits determining accuracy and memory consumption</param>
-        /// <param name="useDirectCount">
-        /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
-        /// False if direct count should be avoided and use always estimation, even for low cardinalities.
-        /// </param>
-        /// <returns>A new empty state for a CardinalityEstimator</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when <paramref name="b"/> is not in the range [4, 16]
-        /// </exception>
-        private static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount)
-        {
-            if (b < 4 || b > 16)
-            {
-                throw new ArgumentOutOfRangeException(nameof(b), b, "Accuracy out of range, legal range is 4 <= BitsPerIndex <= 16");
-            }
-
-            return new CardinalityEstimatorState
-            {
-                BitsPerIndex = b,
-                DirectCount = useDirectCount ? new HashSet<ulong>() : null,
-                IsSparse = true,
-                LookupSparse = new Dictionary<ushort, byte>(),
-                LookupDense = null,
-                CountAdditions = 0,
-            };
-        }
-
-        /// <summary>
-        /// Returns the threshold determining whether to use LinearCounting or HyperLogLog for an estimate. 
-        /// Values are from the supplementary material of Heule et al.
-        /// </summary>
-        /// <param name="bits">Number of bits for the estimator</param>
-        /// <returns>The threshold value for algorithm selection</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when <paramref name="bits"/> is not in the supported range
-        /// </exception>
-        /// <see cref="http://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen#heading=h.nd379k1fxnux" />
-        private double GetSubAlgorithmSelectionThreshold(int bits)
-        {
-            switch (bits)
-            {
-                case 4:
-                    return 10;
-                case 5:
-                    return 20;
-                case 6:
-                    return 40;
-                case 7:
-                    return 80;
-                case 8:
-                    return 220;
-                case 9:
-                    return 400;
-                case 10:
-                    return 900;
-                case 11:
-                    return 1800;
-                case 12:
-                    return 3100;
-                case 13:
-                    return 6500;
-                case 14:
-                    return 11500;
-                case 15:
-                    return 20000;
-                case 16:
-                    return 50000;
-                case 17:
-                    return 120000;
-                case 18:
-                    return 350000;
-            }
-            throw new ArgumentOutOfRangeException(nameof(bits), "Unexpected number of bits (should never happen)");
-        }
-
-        /// <summary>
         /// Adds an element's hash code to the counted set
         /// </summary>
         /// <param name="hashCode">Hash code of the element to add</param>
@@ -775,7 +758,7 @@ namespace CardinalityEstimation
             if (directCount != null)
             {
                 changed = directCount.Add(hashCode);
-                if (directCount.Count > DirectCounterMaxElements)
+                if (directCount.Count > HllConstants.DirectCounterMaxElements)
                 {
                     directCount = null;
                     changed = true;
@@ -802,26 +785,6 @@ namespace CardinalityEstimation
                 changed = changed || (prevMax != sigma && lookupDense[substream] == sigma);
             }
             return changed;
-        }
-
-        /// <summary>
-        /// Gets the appropriate value of alpha_M for the given <paramref name="m" /> for bias correction
-        /// </summary>
-        /// <param name="m">Size of the lookup table (2^bitsPerIndex)</param>
-        /// <returns>alpha_M value for bias correction in HyperLogLog algorithm</returns>
-        private  double GetAlphaM(int m)
-        {
-            switch (m)
-            {
-                case 16:
-                    return 0.673;
-                case 32:
-                    return 0.697;
-                case 64:
-                    return 0.709;
-                default:
-                    return 0.7213/(1 + (1.079 / m));
-            }
         }
 
         /// <summary>

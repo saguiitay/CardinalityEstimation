@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -157,10 +157,7 @@ namespace CardinalityEstimation
             else
             {
                 writer.Write(data.LookupDense.Length);
-                foreach (byte element in data.LookupDense)
-                {
-                    writer.Write(element);
-                }
+                writer.Write(data.LookupDense);
             }
 
             writer.Write(data.CountAdditions);
@@ -237,6 +234,9 @@ namespace CardinalityEstimation
             byte hashFunctionId;
             if (dataFormatMajorVersion >= 3)
             {
+                // Version 3.0 dropped the on-the-wire hashFunctionId byte: the hash function
+                // is now supplied by the caller (or defaults to XxHash128 in the
+                // CardinalityEstimator constructor below). Nothing additional to read here.
             }
             else if (dataFormatMajorVersion >= 2)
             {
@@ -255,6 +255,15 @@ namespace CardinalityEstimation
             }
 
             int bitsPerIndex = reader.ReadInt32();
+            if (bitsPerIndex < 4 || bitsPerIndex > 16)
+            {
+                throw new InvalidDataException(
+                    $"Invalid serialized data: bitsPerIndex must be in the range [4, 16], got {bitsPerIndex}.");
+            }
+            // Maximum number of HLL substreams for the negotiated bitsPerIndex.
+            // Safe to compute as int because bitsPerIndex <= 16 (m <= 65536).
+            int m = 1 << bitsPerIndex;
+
             byte flags = reader.ReadByte();
             bool isSparse = (flags & 2) == 2;
             bool isDirectCount = (flags & 1) == 1;
@@ -266,6 +275,14 @@ namespace CardinalityEstimation
             if (isDirectCount)
             {
                 int count = reader.ReadInt32();
+                // Must match HllConstants.DirectCounterMaxElements (100); a higher value
+                // would mean the writer should have transitioned to the sparse/dense representation.
+                const int maxDirectCount = 100;
+                if (count < 0 || count > maxDirectCount)
+                {
+                    throw new InvalidDataException(
+                        $"Invalid serialized data: directCount length must be in the range [0, {maxDirectCount}], got {count}.");
+                }
                 directCount = new HashSet<ulong>();
 
                 for (var i = 0; i < count; i++)
@@ -277,6 +294,12 @@ namespace CardinalityEstimation
             else if (isSparse)
             {
                 int count = reader.ReadInt32();
+                // Sparse entries are keyed by ushort substream index; there can be at most m of them.
+                if (count < 0 || count > m)
+                {
+                    throw new InvalidDataException(
+                        $"Invalid serialized data: sparse lookup length must be in the range [0, {m}], got {count}.");
+                }
 
                 for (var i = 0; i < count; i++)
                 {
@@ -288,7 +311,18 @@ namespace CardinalityEstimation
             else
             {
                 int count = reader.ReadInt32();
+                // The dense lookup is always exactly m bytes long for the negotiated bitsPerIndex.
+                if (count != m)
+                {
+                    throw new InvalidDataException(
+                        $"Invalid serialized data: dense lookup length must equal m={m} for bitsPerIndex={bitsPerIndex}, got {count}.");
+                }
                 lookupDense = reader.ReadBytes(count);
+                if (lookupDense.Length != count)
+                {
+                    throw new EndOfStreamException(
+                        $"Truncated serialized data: expected {count} bytes for dense lookup, got {lookupDense.Length}.");
+                }
             }
 
             // Starting with version 2.1, the serializer writes CountAdditions

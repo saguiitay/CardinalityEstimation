@@ -233,6 +233,52 @@ namespace CardinalityEstimation.Test
             Assert.Equal(expectedBitsPerIndex, result.GetState().BitsPerIndex);
         }
 
+        /// <summary>
+        /// Regression: <see cref="CardinalityEstimator.Merge(System.Collections.Generic.IEnumerable{CardinalityEstimator})"/>
+        /// previously initialized <c>result</c> from the first non-null estimator and then immediately
+        /// merged the same estimator into <c>result</c>, double-counting <see cref="CardinalityEstimator.CountAdditions"/>
+        /// for the seed element. (Was masked by a separate bug in the copy constructor that did not copy CountAdditions.)
+        /// CountAdditions on the merged result must equal the sum of CountAdditions across all input estimators.
+        /// </summary>
+        [Fact]
+        public void StaticMerge_SumsCountAdditions_DoesNotDoubleCountFirstElement()
+        {
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 14);
+            var c = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) a.Add(i);
+            for (int i = 10; i < 25; i++) b.Add(i);
+            for (int i = 25; i < 45; i++) c.Add(i);
+
+            Assert.Equal(10UL, a.CountAdditions);
+            Assert.Equal(15UL, b.CountAdditions);
+            Assert.Equal(20UL, c.CountAdditions);
+
+            CardinalityEstimator merged = CardinalityEstimator.Merge(new[] { a, b, c });
+            Assert.Equal(45UL, merged.CountAdditions);
+
+            // Single-element merge must also be exact (not 2x).
+            CardinalityEstimator single = CardinalityEstimator.Merge(new[] { a });
+            Assert.Equal(10UL, single.CountAdditions);
+        }
+
+        /// <summary>
+        /// Regression: the copy constructor previously left <see cref="CardinalityEstimator.CountAdditions"/>
+        /// at its default (0) instead of copying it from the source. A clone must be observationally
+        /// equivalent to the original, including CountAdditions.
+        /// </summary>
+        [Fact]
+        public void CopyConstructor_PreservesCountAdditions()
+        {
+            var original = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 17; i++) original.Add(i);
+            Assert.Equal(17UL, original.CountAdditions);
+
+            var clone = new CardinalityEstimator(original);
+            Assert.Equal(original.CountAdditions, clone.CountAdditions);
+            Assert.Equal(original.Count(), clone.Count());
+        }
+
         private void RunRecreationFromData(int cardinality = 1000000)
         {
             var hll = new CardinalityEstimator();
@@ -499,6 +545,247 @@ namespace CardinalityEstimation.Test
         {
             const double ln2 = 0.693147180559945309417232121458;
             return Math.Log(x) / ln2;
+        }
+
+        // ---------------------------------------------------------------------
+        // Coverage-gap tests: small focused tests that exercise previously
+        // uncovered branches (null-arg validation, equality short-circuits,
+        // typed Add overloads, ctor validation).
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Constructor_BelowMinB_Throws()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CardinalityEstimator(b: 3));
+        }
+
+        [Fact]
+        public void Constructor_AboveMaxB_Throws()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CardinalityEstimator(b: 17));
+        }
+
+        [Fact]
+        public void Add_NullString_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => hll.Add((string)null));
+        }
+
+        [Fact]
+        public void Add_NullByteArray_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => hll.Add((byte[])null));
+        }
+
+        [Fact]
+        public void Add_TypedOverloads_AllIncrementCountAdditions()
+        {
+            var hll = new CardinalityEstimator();
+            hll.Add(1);
+            hll.Add(2u);
+            hll.Add(3L);
+            hll.Add(4UL);
+            hll.Add(5.0f);
+            hll.Add(6.0d);
+            hll.Add("seven");
+            hll.Add(new byte[] { 8 });
+
+            Assert.Equal(8UL, hll.CountAdditions);
+            Assert.Equal(8UL, hll.Count());
+        }
+
+        [Fact]
+        public void Add_SameValueAcrossOverloads_StillCountsCountAdditions()
+        {
+            var hll = new CardinalityEstimator();
+            hll.Add(42);
+            hll.Add(42);
+            // Direct counter is exact and dedups; CountAdditions counts every Add call.
+            Assert.Equal(1UL, hll.Count());
+            Assert.Equal(2UL, hll.CountAdditions);
+        }
+
+        [Fact]
+        public void Merge_NullOther_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => hll.Merge(null));
+        }
+
+        [Fact]
+        public void Merge_DifferentBitsPerIndex_Throws()
+        {
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 12);
+            Assert.Throws<ArgumentOutOfRangeException>(() => a.Merge(b));
+        }
+
+        [Fact]
+        public void Equals_NullOther_ReturnsFalse()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.False(hll.Equals((CardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Equals_DifferentBitsPerIndex_ReturnsFalse()
+        {
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 12);
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_DifferentDirectCountContents_ReturnsFalse()
+        {
+            // Both stay in the direct-count path (under 100 elements).
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 14);
+            a.Add("alpha");
+            b.Add("beta");
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_OneDirectCountOneNot_ReturnsFalse()
+        {
+            // A is in direct count; B disables direct counting so the field is null.
+            var a = new CardinalityEstimator(b: 14, useDirectCounting: true);
+            var b = new CardinalityEstimator(b: 14, useDirectCounting: false);
+            a.Add("x");
+            b.Add("x");
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_SameStateSameHash_ReturnsTrue()
+        {
+            // Use the copy constructor so hashFunction reference matches.
+            var a = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 5; i++) a.Add(i);
+            var b = new CardinalityEstimator(a);
+            Assert.True(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_DifferentSparseEntries_ReturnsFalse()
+        {
+            // Disable direct counting so adds populate the sparse lookup directly.
+            var a = new CardinalityEstimator(b: 14, useDirectCounting: false);
+            var b = new CardinalityEstimator(b: 14, useDirectCounting: false);
+            for (int i = 0; i < 50; i++) a.Add($"a_{i}");
+            for (int i = 0; i < 50; i++) b.Add($"b_{i}");
+            Assert.False(a.Equals(b));
+        }
+
+        // ---------------------------------------------------------------------
+        // Regression tests for the precomputed InversePowersOfTwo lookup table.
+        //
+        // Count() previously called Math.Pow(2, -sigma) up to m = 2^bitsPerIndex
+        // times per call (up to 65,536 transcendental calls for b=16). It now
+        // indexes into a precomputed table. Each table entry MUST be bit-equivalent
+        // to Math.Pow(2.0, -i) so that Count() produces the exact same double as
+        // before. These tests pin that invariant.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void InversePowersOfTwo_TableMatchesMathPowExactly()
+        {
+            Assert.Equal(65, HllConstants.InversePowersOfTwo.Length);
+            for (int i = 0; i < HllConstants.InversePowersOfTwo.Length; i++)
+            {
+                Assert.Equal(Math.Pow(2.0, -i), HllConstants.InversePowersOfTwo[i]);
+            }
+        }
+
+        [Fact]
+        public void InversePowersOfTwo_MaxSigmaIndexIsValidForAllBitsPerIndex()
+        {
+            // sigma is bounded by bitsForHll + 1 = (64 - bitsPerIndex) + 1.
+            // For the smallest supported bitsPerIndex (4), max sigma = 61, well under 65.
+            for (int b = 4; b <= 16; b++)
+            {
+                int maxSigma = (64 - b) + 1;
+                Assert.True(maxSigma < HllConstants.InversePowersOfTwo.Length,
+                    $"max sigma {maxSigma} for b={b} must be a valid index into InversePowersOfTwo");
+            }
+        }
+
+        [Theory]
+        [InlineData(4)]
+        [InlineData(10)]
+        [InlineData(14)]
+        [InlineData(16)]
+        public void Constructor_LookupDenseLength_EqualsTwoToBitsPerIndex(int bitsPerIndex)
+        {
+            // m (the number of HLL substreams / dense lookup length) must equal
+            // 2^bitsPerIndex. Constructors compute it via 1 << bitsPerIndex; this
+            // test pins that contract against the documented HLL invariant.
+            int expected = 1 << bitsPerIndex;
+            var hll = new CardinalityEstimator(b: bitsPerIndex);
+            // Force transition into the dense representation.
+            for (int i = 0; i < 5000; i++)
+            {
+                hll.Add(i);
+            }
+            var state = hll.GetState();
+            Assert.NotNull(state.LookupDense);
+            Assert.Equal(expected, state.LookupDense.Length);
+        }
+
+        // ---------------------------------------------------------------------
+        // Regression tests for the zero-allocation primitive Add overloads.
+        //
+        // The Add(int/uint/long/ulong/float/double) overloads previously called
+        // BitConverter.GetBytes(...) which heap-allocated a byte[] every call.
+        // They now use stackalloc + BinaryPrimitives.WriteXxxLittleEndian +
+        // hashFunctionSpan. The byte sequence written is identical to
+        // BitConverter.GetBytes on every supported (little-endian) .NET runtime,
+        // so the hashes — and therefore the cardinality estimate — must match
+        // the equivalent Add(byte[]) call. These tests pin that invariant.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Add_PrimitiveAndByteArray_ProduceSameHash()
+        {
+            var hll = new CardinalityEstimator(b: 14);
+            hll.Add(123);
+            hll.Add(BitConverter.GetBytes(123));
+            hll.Add(456u);
+            hll.Add(BitConverter.GetBytes(456u));
+            hll.Add(789L);
+            hll.Add(BitConverter.GetBytes(789L));
+            hll.Add(1011UL);
+            hll.Add(BitConverter.GetBytes(1011UL));
+            hll.Add(3.14f);
+            hll.Add(BitConverter.GetBytes(3.14f));
+            hll.Add(2.71828);
+            hll.Add(BitConverter.GetBytes(2.71828));
+
+            // 12 Add calls, but each value-pair must hash to the same bucket and dedupe.
+            Assert.Equal(12UL, hll.CountAdditions);
+            Assert.Equal(6UL, hll.Count());
+        }
+
+        [Fact]
+        public void Add_String_StackallocAndHeapPath_AgreeWithByteArray()
+        {
+            // Short string: hits the stackalloc path (UTF-8 max bytes <= threshold).
+            var hll = new CardinalityEstimator(b: 14);
+            const string shortStr = "hello world";
+            hll.Add(shortStr);
+            hll.Add(System.Text.Encoding.UTF8.GetBytes(shortStr));
+            Assert.Equal(1UL, hll.Count());
+            Assert.Equal(2UL, hll.CountAdditions);
+
+            // Long string: forces the heap fallback (UTF-8 max bytes > threshold).
+            var hll2 = new CardinalityEstimator(b: 14);
+            string longStr = new string('x', 200); // max UTF-8 bytes = 600 > 256
+            hll2.Add(longStr);
+            hll2.Add(System.Text.Encoding.UTF8.GetBytes(longStr));
+            Assert.Equal(1UL, hll2.Count());
         }
     }
 }

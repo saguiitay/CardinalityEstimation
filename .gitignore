@@ -198,3 +198,8 @@ FakesAssemblies/
 # Visual Studio 6 workspace options file
 *.opt
 
+
+# dotnet-coverage local output
+coverage.xml
+*.coverage
+

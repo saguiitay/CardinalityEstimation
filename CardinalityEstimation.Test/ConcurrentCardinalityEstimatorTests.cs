@@ -29,8 +29,10 @@ namespace CardinalityEstimation.Test
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Reflection;
     using System.Threading;
     using System.Threading.Tasks;
+    using CardinalityEstimation.Hash;
     using Xunit;
 
     public class ConcurrentCardinalityEstimatorTests
@@ -503,6 +505,507 @@ namespace CardinalityEstimation.Test
             {
                 estimator.Dispose();
             }
+        }
+
+        // ---------------------------------------------------------------------
+        // Coverage-gap tests: exercise previously-uncovered concurrent estimator
+        // paths (null-arg validation, copy ctors, Merge variants, ToCardinalityEstimator,
+        // static Merge/ParallelMerge edge cases, Equals branches).
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Constructor_FromNullCardinalityEstimator_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => new ConcurrentCardinalityEstimator((CardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Constructor_FromNullConcurrentCardinalityEstimator_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => new ConcurrentCardinalityEstimator((ConcurrentCardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Constructor_CopyFromConcurrent_PreservesContent()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 25; i++) a.Add($"x_{i}");
+
+            using var b = new ConcurrentCardinalityEstimator(a);
+
+            Assert.Equal(a.Count(), b.Count());
+            Assert.Equal(a.CountAdditions, b.CountAdditions);
+        }
+
+        [Fact]
+        public void Coverage_Merge_NullConcurrentOther_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            Assert.Throws<ArgumentNullException>(() => a.Merge((ConcurrentCardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Coverage_Merge_DifferentBitsPerIndex_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 12);
+            Assert.Throws<ArgumentOutOfRangeException>(() => a.Merge(b));
+        }
+
+        [Fact]
+        public void Merge_NullCardinalityEstimator_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            Assert.Throws<ArgumentNullException>(() => a.Merge((CardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Merge_CardinalityEstimatorDifferentBitsPerIndex_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 12);
+            Assert.Throws<ArgumentOutOfRangeException>(() => a.Merge(b));
+        }
+
+        [Fact]
+        public void Merge_FromCardinalityEstimator_Succeeds()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) a.Add($"a_{i}");
+
+            var b = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) b.Add($"b_{i}");
+
+            a.Merge(b);
+            Assert.Equal(20UL, a.Count());
+        }
+
+        [Fact]
+        public void ToCardinalityEstimator_PreservesCount()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) a.Add($"x_{i}");
+
+            var snapshot = a.ToCardinalityEstimator();
+            Assert.Equal(10UL, snapshot.Count());
+        }
+
+        [Fact]
+        public void StaticMerge_NullEnumerable_ReturnsNull()
+        {
+            Assert.Null(ConcurrentCardinalityEstimator.Merge((IEnumerable<ConcurrentCardinalityEstimator>)null));
+        }
+
+        [Fact]
+        public void StaticMerge_AllNullEntries_ReturnsNull()
+        {
+            var result = ConcurrentCardinalityEstimator.Merge(new ConcurrentCardinalityEstimator[] { null, null });
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void StaticMerge_SkipsNullEntries_AndMergesRest()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 14);
+            a.Add("a");
+            b.Add("b");
+
+            using var merged = ConcurrentCardinalityEstimator.Merge(new[] { null, a, null, b, null });
+            Assert.NotNull(merged);
+            Assert.Equal(2UL, merged.Count());
+        }
+
+        [Fact]
+        public void StaticParallelMerge_NullEnumerable_ReturnsNull()
+        {
+            Assert.Null(ConcurrentCardinalityEstimator.ParallelMerge(null));
+        }
+
+        [Fact]
+        public void StaticParallelMerge_AllNullEntries_ReturnsNull()
+        {
+            var result = ConcurrentCardinalityEstimator.ParallelMerge(new ConcurrentCardinalityEstimator[] { null, null });
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void StaticParallelMerge_SingleEstimator_ReturnsCopy()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 5; i++) a.Add($"v_{i}");
+
+            using var merged = ConcurrentCardinalityEstimator.ParallelMerge(new[] { a });
+            Assert.NotNull(merged);
+            Assert.Equal(5UL, merged.Count());
+        }
+
+        [Fact]
+        public void StaticParallelMerge_MismatchedBitsPerIndex_Throws()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 12);
+
+            Assert.Throws<ArgumentException>(() => ConcurrentCardinalityEstimator.ParallelMerge(new[] { a, b }));
+        }
+
+        [Fact]
+        public void StaticParallelMerge_WithDegree_MergesAll()
+        {
+            var estimators = new ConcurrentCardinalityEstimator[4];
+            try
+            {
+                for (int i = 0; i < estimators.Length; i++)
+                {
+                    estimators[i] = new ConcurrentCardinalityEstimator(b: 14);
+                    for (int j = 0; j < 10; j++) estimators[i].Add($"e{i}_v{j}");
+                }
+
+                using var merged = ConcurrentCardinalityEstimator.ParallelMerge(estimators, parallelismDegree: 2);
+                Assert.NotNull(merged);
+                Assert.Equal(40UL, merged.Count());
+            }
+            finally
+            {
+                foreach (var e in estimators) e?.Dispose();
+            }
+        }
+
+        [Fact]
+        public void InstanceId_IsUniquePerInstance()
+        {
+            // Lock ordering relies on instanceId being strictly distinct between instances —
+            // GetHashCode() can collide and produce undefined ordering, which is the bug this
+            // field replaces. Verify uniqueness across a batch of allocations.
+            const int count = 1000;
+            var ids = new HashSet<long>();
+            var instances = new ConcurrentCardinalityEstimator[count];
+            try
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    instances[i] = new ConcurrentCardinalityEstimator(b: 14);
+                    var id = (long)typeof(ConcurrentCardinalityEstimator)
+                        .GetField("instanceId", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .GetValue(instances[i]);
+                    Assert.True(ids.Add(id), $"Duplicate instanceId {id} at index {i}");
+                }
+            }
+            finally
+            {
+                foreach (var e in instances) e?.Dispose();
+            }
+        }
+
+        [Fact]
+        public void Merge_CrossPairs_HighConcurrency_DoesNotDeadlock()
+        {
+            // Regression test: prior to the fix, Merge ordered locks by GetHashCode(), which
+            // can collide between two distinct instances and yield inconsistent ordering across
+            // threads — opening a deadlock window when threads merge the same pair in opposite
+            // directions. With the per-instance ID, ordering is total and deadlock-free.
+            const int pairCount = 16;
+            const int iterations = 200;
+            var pairs = new (ConcurrentCardinalityEstimator a, ConcurrentCardinalityEstimator b)[pairCount];
+            try
+            {
+                for (int i = 0; i < pairCount; i++)
+                {
+                    pairs[i] = (new ConcurrentCardinalityEstimator(b: 12), new ConcurrentCardinalityEstimator(b: 12));
+                    pairs[i].a.Add($"a{i}");
+                    pairs[i].b.Add($"b{i}");
+                }
+
+                var tasks = new Task[pairCount * 2];
+                for (int i = 0; i < pairCount; i++)
+                {
+                    var p = pairs[i];
+                    tasks[2 * i] = Task.Run(() =>
+                    {
+                        for (int k = 0; k < iterations; k++) p.a.Merge(p.b);
+                    });
+                    tasks[2 * i + 1] = Task.Run(() =>
+                    {
+                        for (int k = 0; k < iterations; k++) p.b.Merge(p.a);
+                    });
+                }
+
+                Assert.True(Task.WaitAll(tasks, TimeSpan.FromSeconds(30)),
+                    "Cross-pair Merge tasks did not complete within 30s — possible deadlock.");
+            }
+            finally
+            {
+                foreach (var (a, b) in pairs)
+                {
+                    a?.Dispose();
+                    b?.Dispose();
+                }
+            }
+        }
+
+        [Fact]
+        public void Equals_NullOther_ReturnsFalse()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            Assert.False(a.Equals((ConcurrentCardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Coverage_Equals_DifferentBitsPerIndex_ReturnsFalse()
+        {
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 12);
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_OneDirectCountOneNot_ReturnsFalse()
+        {
+            // ConcurrentCardinalityEstimator's public ctor doesn't expose useDirectCounting,
+            // but adding more than the threshold tips one out of the direct-count path.
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 5; i++) a.Add($"a_{i}");
+            for (int i = 0; i < 200; i++) b.Add($"b_{i}");
+            Assert.False(a.Equals(b));
+        }
+
+        // Regression tests for the direct-count storage. Previously backed by ConcurrentBag<ulong>,
+        // which permits duplicates and forced every Add/Count/Merge/Equals path to call .Distinct()
+        // (allocating + O(n)). The storage is now a ConcurrentDictionary<ulong, byte> used as a
+        // concurrent hash set, so duplicates simply collapse and Count is O(1).
+
+        [Fact]
+        public void DirectCount_ConcurrentDuplicateAdds_DeduplicatesExactly()
+        {
+            // Arrange - stay below DirectCounterMaxElements (100) so we exercise the direct-count path.
+            using var estimator = new ConcurrentCardinalityEstimator(b: 14);
+            const int distinctCount = 50;
+            const int duplicatesPerElement = 200;
+
+            // Act - many threads pushing the same set of values repeatedly.
+            Parallel.For(0, distinctCount * duplicatesPerElement, i =>
+            {
+                estimator.Add($"element_{i % distinctCount}");
+            });
+
+            // Assert - direct counter is exact, so Count must equal the number of distinct strings,
+            // regardless of how many duplicate adds raced.
+            Assert.Equal((ulong)distinctCount, estimator.Count());
+            Assert.Equal((ulong)(distinctCount * duplicatesPerElement), estimator.CountAdditions);
+        }
+
+        [Fact]
+        public void DirectCount_TransitionsToSparse_AtCorrectThreshold()
+        {
+            // Arrange - DirectCounterMaxElements is 100. Adding 101 distinct elements must
+            // tip the estimator out of the direct-count path and into the HLL representation.
+            using var estimator = new ConcurrentCardinalityEstimator(b: 14);
+
+            // Act
+            for (int i = 0; i <= 100; i++)
+            {
+                estimator.Add($"element_{i}");
+            }
+
+            // Assert - the direct-count path is exact up to 100, but past the threshold we are
+            // back to an HLL estimate, so we just verify the count is in a sane range.
+            ulong count = estimator.Count();
+            Assert.InRange(count, 90UL, 110UL);
+            Assert.Equal(101UL, estimator.CountAdditions);
+        }
+
+        [Fact]
+        public void DirectCount_MergeDeduplicates_AndRespectsThreshold()
+        {
+            // Arrange
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 14);
+
+            // 30 elements in each, with a 10-element overlap → 50 distinct after merge,
+            // still below the 100-element direct-count threshold.
+            for (int i = 0; i < 30; i++)
+            {
+                a.Add($"a_{i}");
+                b.Add($"a_{i + 20}");
+            }
+
+            // Act
+            a.Merge(b);
+
+            // Assert - merge through the direct-count path must deduplicate exactly.
+            Assert.Equal(50UL, a.Count());
+        }
+
+        [Fact]
+        public void DirectCount_RoundTripsThroughCardinalityEstimator()
+        {
+            // Arrange - convert to the non-concurrent estimator and back, while still in the
+            // direct-count path. The round trip exercises GetStateInternal/InitializeFromState,
+            // both of which had to special-case the bag's duplicate semantics.
+            using var original = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 25; i++)
+            {
+                original.Add($"value_{i}");
+            }
+
+            // Act
+            CardinalityEstimator snapshot = original.ToCardinalityEstimator();
+            using var roundTripped = new ConcurrentCardinalityEstimator(snapshot);
+
+            // Assert - direct-count is exact, so all three views must report the same count.
+            Assert.Equal(25UL, original.Count());
+            Assert.Equal(25UL, snapshot.Count());
+            Assert.Equal(25UL, roundTripped.Count());
+        }
+
+        [Fact]
+        public void Convert_CardinalityEstimatorToConcurrent_PreservesCustomHashFunction()
+        {
+            // Regression: the CardinalityEstimator -> ConcurrentCardinalityEstimator conversion
+            // used to silently drop the source hash function and substitute the default XxHash128,
+            // because CardinalityEstimator exposed no API to read it back. Now that HashFunction
+            // is public, the conversion preserves it (verified by reference equality).
+            GetHashCodeDelegate custom = Fnv1A.GetHashCode;
+            var source = new CardinalityEstimator(custom, b: 14);
+            source.Add("alice");
+            source.Add("bob");
+
+            using var converted = new ConcurrentCardinalityEstimator(source);
+
+            Assert.Same(custom, converted.HashFunction);
+            Assert.Equal(2UL, converted.Count());
+        }
+
+        [Fact]
+        public void Convert_ConcurrentToCardinalityEstimator_PreservesBothHashFunctions()
+        {
+            // Regression: ToCardinalityEstimator passed only the byte-array delegate to the target
+            // ctor, which then synthesised a span delegate as (x) => hashFunction(x.ToArray()).
+            // That defeated the zero-allocation span path on the converted instance. The new
+            // internal ctor that accepts both delegates is now used so both paths survive intact.
+            GetHashCodeDelegate custom = Murmur3.GetHashCode;
+            using var source = new ConcurrentCardinalityEstimator(custom, b: 14);
+            source.Add("x");
+
+            CardinalityEstimator snapshot = source.ToCardinalityEstimator();
+
+            Assert.Same(source.HashFunction, snapshot.HashFunction);
+            Assert.Same(source.HashFunctionSpan, snapshot.HashFunctionSpan);
+            Assert.Equal(1UL, snapshot.Count());
+        }
+
+        [Fact]
+        public void HashFunction_Property_ReturnsSuppliedDelegate()
+        {
+            GetHashCodeDelegate custom = Fnv1A.GetHashCode;
+            using var ccle = new ConcurrentCardinalityEstimator(custom, b: 14);
+            var cle = new CardinalityEstimator(custom, b: 14);
+
+            Assert.Same(custom, ccle.HashFunction);
+            Assert.Same(custom, cle.HashFunction);
+            Assert.NotNull(ccle.HashFunctionSpan);
+            Assert.NotNull(cle.HashFunctionSpan);
+        }
+
+        // ---------------------------------------------------------------------
+        // Regression tests for the zero-allocation primitive Add overloads.
+        // See CardinalityEstimatorTests for the full rationale; these mirror
+        // the same invariant on the concurrent estimator.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Add_PrimitiveAndByteArray_ProduceSameHash()
+        {
+            using var hll = new ConcurrentCardinalityEstimator(b: 14);
+            hll.Add(123);
+            hll.Add(BitConverter.GetBytes(123));
+            hll.Add(456u);
+            hll.Add(BitConverter.GetBytes(456u));
+            hll.Add(789L);
+            hll.Add(BitConverter.GetBytes(789L));
+            hll.Add(1011UL);
+            hll.Add(BitConverter.GetBytes(1011UL));
+            hll.Add(3.14f);
+            hll.Add(BitConverter.GetBytes(3.14f));
+            hll.Add(2.71828);
+            hll.Add(BitConverter.GetBytes(2.71828));
+
+            Assert.Equal(12UL, hll.CountAdditions);
+            Assert.Equal(6UL, hll.Count());
+        }
+
+        [Fact]
+        public void Add_String_StackallocAndHeapPath_AgreeWithByteArray()
+        {
+            using var hll = new ConcurrentCardinalityEstimator(b: 14);
+            const string shortStr = "hello world";
+            hll.Add(shortStr);
+            hll.Add(System.Text.Encoding.UTF8.GetBytes(shortStr));
+            Assert.Equal(1UL, hll.Count());
+
+            using var hll2 = new ConcurrentCardinalityEstimator(b: 14);
+            string longStr = new string('x', 200);
+            hll2.Add(longStr);
+            hll2.Add(System.Text.Encoding.UTF8.GetBytes(longStr));
+            Assert.Equal(1UL, hll2.Count());
+        }
+
+        // ---------------------------------------------------------------------
+        // The shared HllConstants.InversePowersOfTwo table is exercised by the
+        // unit test in CardinalityEstimatorTests; both estimators now consume
+        // the same table so a single regression test is sufficient.
+        // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Regression: the <see cref="ConcurrentCardinalityEstimator"/> constructor that takes a
+        /// <see cref="GetHashCodeSpanDelegate"/> previously checked <c>this.hashFunction == null</c>
+        /// (which is always true at that point because the chained <c>this(state)</c> ctor never
+        /// assigns it) and unconditionally overwrote the user-supplied span delegate with the
+        /// default XxHash128 implementation. The user delegate must be honored, and a non-null
+        /// byte-array <c>hashFunction</c> companion must be wired up to it (mirrors the analogous
+        /// branch in <see cref="CardinalityEstimator(GetHashCodeSpanDelegate, CardinalityEstimatorState)"/>).
+        /// </summary>
+        [Fact]
+        public void SpanDelegateConstructor_UsesProvidedDelegateInsteadOfDefault()
+        {
+            int callCount = 0;
+            GetHashCodeSpanDelegate customSpanHash = (ReadOnlySpan<byte> bytes) =>
+            {
+                callCount++;
+                // Return a deterministic, distinctive value so default XxHash128 (which would
+                // produce arbitrary bit patterns) cannot accidentally match this fingerprint.
+                return 0xDEADBEEFCAFEBABEUL;
+            };
+
+            var state = new CardinalityEstimatorState
+            {
+                BitsPerIndex = 14,
+                IsSparse = true,
+                LookupSparse = new Dictionary<ushort, byte>(),
+                CountAdditions = 0,
+            };
+
+            using var estimator = new ConcurrentCardinalityEstimator(customSpanHash, state);
+            estimator.Add(BitConverter.GetBytes(42));
+
+            Assert.True(callCount > 0, "Custom span hash delegate was never invoked -- ctor silently replaced it with the default.");
+        }
+
+        [Fact]
+        public void AddString_ThrowsArgumentNullException_WhenElementIsNull()
+        {
+            using var estimator = new ConcurrentCardinalityEstimator();
+            var ex = Assert.Throws<ArgumentNullException>(() => estimator.Add((string)null));
+            Assert.Equal("element", ex.ParamName);
+        }
+
+        [Fact]
+        public void AddByteArray_ThrowsArgumentNullException_WhenElementIsNull()
+        {
+            using var estimator = new ConcurrentCardinalityEstimator();
+            var ex = Assert.Throws<ArgumentNullException>(() => estimator.Add((byte[])null));
+            Assert.Equal("element", ex.ParamName);
         }
     }
 }

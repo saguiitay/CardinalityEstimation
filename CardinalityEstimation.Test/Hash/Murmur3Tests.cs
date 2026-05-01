@@ -23,6 +23,7 @@
 //     SOFTWARE.
 // */
 
+using System;
 using CardinalityEstimation.Hash;
 using Xunit;
 
@@ -37,6 +38,12 @@ namespace CardinalityEstimation.Test.Hash
             Assert.Equal(0UL, Murmur3.GetHashCode(new byte[0]));
             Assert.Equal(18344466521425217038UL, Murmur3.GetHashCode(new byte[] { 1, 2, 3, 4, 5 }));
             Assert.Equal(4889297221962843713UL, Murmur3.GetHashCode(new byte[] { 255, 255, 255, 255 }));
+        }
+
+        [Fact]
+        public void Murmur3_NullBytes_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() => Murmur3.GetHashCode(null));
         }
     }
 }
