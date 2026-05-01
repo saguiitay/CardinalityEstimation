@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -83,6 +83,7 @@ namespace CardinalityEstimation
         /// this threshold are encoded into a stackalloc buffer to avoid GC pressure.
         /// </summary>
         private const int StackallocByteThreshold = 256;
+
         #endregion
 
         #region Private fields
@@ -531,7 +532,7 @@ namespace CardinalityEstimation
                 foreach (KeyValuePair<ushort, byte> kvp in lookupSparse)
                 {
                     byte sigma = kvp.Value;
-                    zInverse += Math.Pow(2, -sigma);
+                    zInverse += HllConstants.InversePowersOfTwo[sigma];
                 }
                 v = m - lookupSparse.Count;
                 zInverse += m - lookupSparse.Count;
@@ -542,7 +543,7 @@ namespace CardinalityEstimation
                 for (var i = 0; i < m; i++)
                 {
                     byte sigma = lookupDense[i];
-                    zInverse += Math.Pow(2, -sigma);
+                    zInverse += HllConstants.InversePowersOfTwo[sigma];
                     if (sigma == 0)
                     {
                         v++;

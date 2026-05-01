@@ -827,5 +827,11 @@ namespace CardinalityEstimation.Test
             hll2.Add(System.Text.Encoding.UTF8.GetBytes(longStr));
             Assert.Equal(1UL, hll2.Count());
         }
+
+        // ---------------------------------------------------------------------
+        // The shared HllConstants.InversePowersOfTwo table is exercised by the
+        // unit test in CardinalityEstimatorTests; both estimators now consume
+        // the same table so a single regression test is sufficient.
+        // ---------------------------------------------------------------------
     }
 }

@@ -635,6 +635,39 @@ namespace CardinalityEstimation.Test
         }
 
         // ---------------------------------------------------------------------
+        // Regression tests for the precomputed InversePowersOfTwo lookup table.
+        //
+        // Count() previously called Math.Pow(2, -sigma) up to m = 2^bitsPerIndex
+        // times per call (up to 65,536 transcendental calls for b=16). It now
+        // indexes into a precomputed table. Each table entry MUST be bit-equivalent
+        // to Math.Pow(2.0, -i) so that Count() produces the exact same double as
+        // before. These tests pin that invariant.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void InversePowersOfTwo_TableMatchesMathPowExactly()
+        {
+            Assert.Equal(65, HllConstants.InversePowersOfTwo.Length);
+            for (int i = 0; i < HllConstants.InversePowersOfTwo.Length; i++)
+            {
+                Assert.Equal(Math.Pow(2.0, -i), HllConstants.InversePowersOfTwo[i]);
+            }
+        }
+
+        [Fact]
+        public void InversePowersOfTwo_MaxSigmaIndexIsValidForAllBitsPerIndex()
+        {
+            // sigma is bounded by bitsForHll + 1 = (64 - bitsPerIndex) + 1.
+            // For the smallest supported bitsPerIndex (4), max sigma = 61, well under 65.
+            for (int b = 4; b <= 16; b++)
+            {
+                int maxSigma = (64 - b) + 1;
+                Assert.True(maxSigma < HllConstants.InversePowersOfTwo.Length,
+                    $"max sigma {maxSigma} for b={b} must be a valid index into InversePowersOfTwo");
+            }
+        }
+
+        // ---------------------------------------------------------------------
         // Regression tests for the zero-allocation primitive Add overloads.
         //
         // The Add(int/uint/long/ulong/float/double) overloads previously called
