@@ -167,6 +167,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Bulk-write dense lookup array in serializer.
 - Fixed `CardinalityEstimator.Merge(IEnumerable)` double-counting `CountAdditions` for the seed element; copy constructor now preserves `CountAdditions`.
 - Fixed `ConcurrentCardinalityEstimator` span-delegate constructor silently discarding the supplied delegate.
+- Added null-argument validation to `ConcurrentCardinalityEstimator.Add(string)` and `Add(byte[])` for parity with `CardinalityEstimator`.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).

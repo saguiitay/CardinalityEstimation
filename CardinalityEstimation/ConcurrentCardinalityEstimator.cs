@@ -326,8 +326,12 @@ namespace CardinalityEstimation
         /// Add an element of type <see cref="string"/>
         /// </summary>
         /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="element"/> is null</exception>
         public bool Add(string element)
         {
+            if (element == null)
+                throw new ArgumentNullException(nameof(element));
+
             ThrowIfDisposed();
 
             ulong hashCode;
@@ -441,8 +445,12 @@ namespace CardinalityEstimation
         /// Add an element of type <see cref="byte[]"/>
         /// </summary>
         /// <returns>True is estimator's state was modified. False otherwise</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="element"/> is null</exception>
         public bool Add(byte[] element)
         {
+            if (element == null)
+                throw new ArgumentNullException(nameof(element));
+
             ThrowIfDisposed();
             ulong hashCode = hashFunction(element);
             bool changed = AddElementHash(hashCode);
