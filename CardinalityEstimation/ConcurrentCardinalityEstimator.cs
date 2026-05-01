@@ -102,9 +102,12 @@ namespace CardinalityEstimation
         private volatile bool isSparse;
 
         /// <summary>
-        /// Set for direct counting of elements (thread-safe)
+        /// Set for direct counting of elements (thread-safe). Used as a concurrent hash set:
+        /// only the keys matter; the byte value is a placeholder. This gives O(1) Add/Contains/Count
+        /// without the per-call allocations and O(n) deduplication that a <see cref="ConcurrentBag{T}"/>
+        /// would require (since a bag permits duplicates).
         /// </summary>
-        private volatile ConcurrentBag<ulong> directCount;
+        private volatile ConcurrentDictionary<ulong, byte> directCount;
 
         /// <summary>
         /// Hash function used
@@ -265,7 +268,11 @@ namespace CardinalityEstimation
             // Init the direct count
             if (state.DirectCount != null)
             {
-                directCount = new ConcurrentBag<ulong>(state.DirectCount);
+                directCount = new ConcurrentDictionary<ulong, byte>();
+                foreach (ulong element in state.DirectCount)
+                {
+                    directCount.TryAdd(element, 0);
+                }
             }
 
             // Init the sparse representation
@@ -290,7 +297,7 @@ namespace CardinalityEstimation
                 // since we are re-initializing the object, we need to reset isSparse to true and sparse lookup
                 isSparse = true;
                 lookupSparse = new ConcurrentDictionary<ushort, byte>();
-                foreach (ulong element in directCount)
+                foreach (ulong element in directCount.Keys)
                 {
                     AddElementHashInternal(element);
                 }
@@ -476,7 +483,7 @@ namespace CardinalityEstimation
                 // If only a few elements have been seen, return the exact count
                 if (directCount != null)
                 {
-                    return (ulong)directCount.Distinct().Count();
+                    return (ulong)directCount.Count;
                 }
 
                 return ComputeCountInternal();
@@ -722,7 +729,7 @@ namespace CardinalityEstimation
             HashSet<ulong> directCountSet = null;
             if (directCount != null)
             {
-                directCountSet = directCount.Distinct().ToHashSet();
+                directCountSet = new HashSet<ulong>(directCount.Keys);
             }
 
             Dictionary<ushort, byte> sparseLookup = null;
@@ -805,10 +812,8 @@ namespace CardinalityEstimation
             
             if (directCount != null)
             {
-                var countBefore = directCount.Distinct().Count();
-                directCount.Add(hashCode);
-                var countAfter = directCount.Distinct().Count();
-                changed = countAfter > countBefore;
+                changed = directCount.TryAdd(hashCode, 0);
+                int countAfter = directCount.Count;
 
                 if (countAfter > DirectCounterMaxElements)
                 {
@@ -816,7 +821,7 @@ namespace CardinalityEstimation
                     try
                     {
                         // Double-check after acquiring write lock
-                        if (directCount != null && directCount.Distinct().Count() > DirectCounterMaxElements)
+                        if (directCount != null && directCount.Count > DirectCounterMaxElements)
                         {
                             directCount = null;
                             changed = true;
@@ -1001,13 +1006,12 @@ namespace CardinalityEstimation
                 // Other instance is using direct counter. If this instance is also using direct counter, merge them.
                 if (directCount != null)
                 {
-                    var otherDistinct = other.directCount.Distinct().ToList();
-                    foreach (var item in otherDistinct)
+                    foreach (var key in other.directCount.Keys)
                     {
-                        directCount.Add(item);
+                        directCount.TryAdd(key, 0);
                     }
-                    
-                    if (directCount.Distinct().Count() > DirectCounterMaxElements)
+
+                    if (directCount.Count > DirectCounterMaxElements)
                     {
                         directCount = null;
                     }
@@ -1138,9 +1142,7 @@ namespace CardinalityEstimation
             }
             if (directCount != null)
             {
-                var thisDistinct = directCount.Distinct().ToHashSet();
-                var otherDistinct = other.directCount.Distinct().ToHashSet();
-                if (thisDistinct.Count != otherDistinct.Count)
+                if (directCount.Count != other.directCount.Count)
                 {
                     return false;
                 }
@@ -1159,11 +1161,12 @@ namespace CardinalityEstimation
 
             if (directCount != null)
             {
-                var thisDistinct = directCount.Distinct().ToHashSet();
-                var otherDistinct = other.directCount.Distinct().ToHashSet();
-                if (!thisDistinct.SetEquals(otherDistinct))
+                foreach (var key in directCount.Keys)
                 {
-                    return false;
+                    if (!other.directCount.ContainsKey(key))
+                    {
+                        return false;
+                    }
                 }
             }
 
