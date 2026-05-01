@@ -15,7 +15,8 @@
         <Copyright>Copyright © Sagui Itay 2022</Copyright>
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
         <PackageReleaseNotes>Hardened CardinalityEstimatorSerializer against DoS via maliciously crafted input (validates bitsPerIndex and all length-prefixed counts before allocating)
-Switched target frameworks from net8.0/net9.0 to net8.0/net10.0</PackageReleaseNotes>
+Switched target frameworks from net8.0/net9.0 to net8.0/net10.0
+Updated System.IO.Hashing dependency from 8.0.0 to 10.0.7</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
@@ -33,7 +34,7 @@ Switched target frameworks from net8.0/net9.0 to net8.0/net10.0</PackageReleaseN
     </PropertyGroup>
 
     <ItemGroup >
-        <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
+        <PackageReference Include="System.IO.Hashing" Version="10.0.7" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(Configuration)' == 'Release-Signed' ">

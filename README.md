@@ -159,6 +159,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 
 ### 1.15.0
 - Switched target frameworks from `net8.0` / `net9.0` to `net8.0` / `net10.0`.
+- Updated `System.IO.Hashing` dependency from `8.0.0` to `10.0.7`.
 - Hardened `CardinalityEstimatorSerializer` against denial-of-service via a maliciously crafted input stream: `bitsPerIndex` and all length-prefixed counts (direct / sparse / dense) are now validated before any allocation.
 
 ### 1.14.0
