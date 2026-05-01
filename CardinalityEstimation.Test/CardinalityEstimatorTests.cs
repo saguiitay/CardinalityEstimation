@@ -500,5 +500,138 @@ namespace CardinalityEstimation.Test
             const double ln2 = 0.693147180559945309417232121458;
             return Math.Log(x) / ln2;
         }
+
+        // ---------------------------------------------------------------------
+        // Coverage-gap tests: small focused tests that exercise previously
+        // uncovered branches (null-arg validation, equality short-circuits,
+        // typed Add overloads, ctor validation).
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Constructor_BelowMinB_Throws()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CardinalityEstimator(b: 3));
+        }
+
+        [Fact]
+        public void Constructor_AboveMaxB_Throws()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CardinalityEstimator(b: 17));
+        }
+
+        [Fact]
+        public void Add_NullString_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => hll.Add((string)null));
+        }
+
+        [Fact]
+        public void Add_NullByteArray_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => hll.Add((byte[])null));
+        }
+
+        [Fact]
+        public void Add_TypedOverloads_AllIncrementCountAdditions()
+        {
+            var hll = new CardinalityEstimator();
+            hll.Add(1);
+            hll.Add(2u);
+            hll.Add(3L);
+            hll.Add(4UL);
+            hll.Add(5.0f);
+            hll.Add(6.0d);
+            hll.Add("seven");
+            hll.Add(new byte[] { 8 });
+
+            Assert.Equal(8UL, hll.CountAdditions);
+            Assert.Equal(8UL, hll.Count());
+        }
+
+        [Fact]
+        public void Add_SameValueAcrossOverloads_StillCountsCountAdditions()
+        {
+            var hll = new CardinalityEstimator();
+            hll.Add(42);
+            hll.Add(42);
+            // Direct counter is exact and dedups; CountAdditions counts every Add call.
+            Assert.Equal(1UL, hll.Count());
+            Assert.Equal(2UL, hll.CountAdditions);
+        }
+
+        [Fact]
+        public void Merge_NullOther_Throws()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.Throws<ArgumentNullException>(() => hll.Merge(null));
+        }
+
+        [Fact]
+        public void Merge_DifferentBitsPerIndex_Throws()
+        {
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 12);
+            Assert.Throws<ArgumentOutOfRangeException>(() => a.Merge(b));
+        }
+
+        [Fact]
+        public void Equals_NullOther_ReturnsFalse()
+        {
+            var hll = new CardinalityEstimator();
+            Assert.False(hll.Equals((CardinalityEstimator)null));
+        }
+
+        [Fact]
+        public void Equals_DifferentBitsPerIndex_ReturnsFalse()
+        {
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 12);
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_DifferentDirectCountContents_ReturnsFalse()
+        {
+            // Both stay in the direct-count path (under 100 elements).
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 14);
+            a.Add("alpha");
+            b.Add("beta");
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_OneDirectCountOneNot_ReturnsFalse()
+        {
+            // A is in direct count; B disables direct counting so the field is null.
+            var a = new CardinalityEstimator(b: 14, useDirectCounting: true);
+            var b = new CardinalityEstimator(b: 14, useDirectCounting: false);
+            a.Add("x");
+            b.Add("x");
+            Assert.False(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_SameStateSameHash_ReturnsTrue()
+        {
+            // Use the copy constructor so hashFunction reference matches.
+            var a = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 5; i++) a.Add(i);
+            var b = new CardinalityEstimator(a);
+            Assert.True(a.Equals(b));
+        }
+
+        [Fact]
+        public void Equals_DifferentSparseEntries_ReturnsFalse()
+        {
+            // Disable direct counting so adds populate the sparse lookup directly.
+            var a = new CardinalityEstimator(b: 14, useDirectCounting: false);
+            var b = new CardinalityEstimator(b: 14, useDirectCounting: false);
+            for (int i = 0; i < 50; i++) a.Add($"a_{i}");
+            for (int i = 0; i < 50; i++) b.Add($"b_{i}");
+            Assert.False(a.Equals(b));
+        }
     }
 }
