@@ -548,8 +548,10 @@ namespace CardinalityEstimation.Test
                 Task.Run(() => estimator1.Merge(estimator3))
             };
 
-            // Assert - Should complete without deadlock
-            var completed = Task.WaitAll(mergeTasks, TimeSpan.FromSeconds(5));
+            // Assert - Should complete without deadlock. Use a generous 30 s budget so this
+            // detects an actual deadlock while staying well clear of cold-runner scheduling
+            // jitter on shared CI workers (locally this completes in tens of milliseconds).
+            var completed = Task.WaitAll(mergeTasks, TimeSpan.FromSeconds(30));
             Assert.True(completed, "Merges should complete without deadlock");
             
             Assert.True(estimator1.Count() > 0);
