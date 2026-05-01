@@ -442,5 +442,107 @@ namespace CardinalityEstimation.Test
                 Assert.True(data.LookupDense.SequenceEqual(data2.LookupDense));
             }
         }
+
+        // Header for current format (major=3, minor=1) with the given bitsPerIndex and flags.
+        private static void WriteHeader(BinaryWriter bw, int bitsPerIndex, byte flags)
+        {
+            bw.Write((ushort)CardinalityEstimatorSerializer.DataFormatMajorVersion);
+            bw.Write((ushort)CardinalityEstimatorSerializer.DataFormatMinorVersion);
+            bw.Write(bitsPerIndex);
+            bw.Write(flags);
+        }
+
+        [Theory]
+        [InlineData(3)]    // below minimum
+        [InlineData(17)]   // above maximum
+        [InlineData(30)]   // attacker value: m = 2^30 ~ 1 GB
+        [InlineData(-1)]   // negative
+        public void Deserialize_RejectsOutOfRangeBitsPerIndex(int bitsPerIndex)
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex, flags: 0);
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsOversizedDirectCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 1); // isDirectCount=true
+                bw.Write(int.MaxValue);                       // attacker-supplied count
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsNegativeDirectCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 1); // isDirectCount=true
+                bw.Write(-1);
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsOversizedSparseCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 2); // isSparse=true
+                bw.Write(int.MaxValue);                       // attacker-supplied count
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsOversizedDenseCount()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 0); // dense
+                bw.Write(int.MaxValue);                       // attacker-supplied count != m
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
+
+        [Fact]
+        public void Deserialize_RejectsDenseCountThatDoesNotMatchM()
+        {
+            using var ms = new MemoryStream();
+            using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                WriteHeader(bw, bitsPerIndex: 14, flags: 0); // dense, m = 16384
+                bw.Write(16383);                               // off by one
+            }
+            ms.Position = 0;
+
+            var serializer = new CardinalityEstimatorSerializer();
+            Assert.Throws<InvalidDataException>(() => serializer.Deserialize(ms));
+        }
     }
 }

@@ -16,6 +16,7 @@
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
         <PackageReleaseNotes>Added support for Span/ReadOnlySpan/Memory/ReadOnlyMemory
 Added ConcurrentCardinalityEstimator
+Hardened CardinalityEstimatorSerializer against DoS via maliciously crafted input (validates bitsPerIndex and all length-prefixed counts before allocating)
 Updated XML docs</PackageReleaseNotes>
         <AssemblyVersion>1.14.0.0</AssemblyVersion>
         <FileVersion>1.14.0.0</FileVersion>
