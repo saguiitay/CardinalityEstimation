@@ -21,7 +21,8 @@ Fixed O(n) ConcurrentCardinalityEstimator direct-count storage (ConcurrentBag -&
 Zero-allocation primitive Add overloads (stackalloc + span hash)
 Precomputed inverse-powers-of-two table in Count() (removes Math.Pow from hot loop)
 Bulk-write dense lookup array in serializer
-Fixed CardinalityEstimator.Merge(IEnumerable) double-counting CountAdditions for the seed element; copy constructor now preserves CountAdditions</PackageReleaseNotes>
+Fixed CardinalityEstimator.Merge(IEnumerable) double-counting CountAdditions for the seed element; copy constructor now preserves CountAdditions
+Fixed ConcurrentCardinalityEstimator span-delegate constructor silently discarding the supplied delegate</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>

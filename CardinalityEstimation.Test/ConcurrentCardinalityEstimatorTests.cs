@@ -833,5 +833,40 @@ namespace CardinalityEstimation.Test
         // unit test in CardinalityEstimatorTests; both estimators now consume
         // the same table so a single regression test is sufficient.
         // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Regression: the <see cref="ConcurrentCardinalityEstimator"/> constructor that takes a
+        /// <see cref="GetHashCodeSpanDelegate"/> previously checked <c>this.hashFunction == null</c>
+        /// (which is always true at that point because the chained <c>this(state)</c> ctor never
+        /// assigns it) and unconditionally overwrote the user-supplied span delegate with the
+        /// default XxHash128 implementation. The user delegate must be honored, and a non-null
+        /// byte-array <c>hashFunction</c> companion must be wired up to it (mirrors the analogous
+        /// branch in <see cref="CardinalityEstimator(GetHashCodeSpanDelegate, CardinalityEstimatorState)"/>).
+        /// </summary>
+        [Fact]
+        public void SpanDelegateConstructor_UsesProvidedDelegateInsteadOfDefault()
+        {
+            int callCount = 0;
+            GetHashCodeSpanDelegate customSpanHash = (ReadOnlySpan<byte> bytes) =>
+            {
+                callCount++;
+                // Return a deterministic, distinctive value so default XxHash128 (which would
+                // produce arbitrary bit patterns) cannot accidentally match this fingerprint.
+                return 0xDEADBEEFCAFEBABEUL;
+            };
+
+            var state = new CardinalityEstimatorState
+            {
+                BitsPerIndex = 14,
+                IsSparse = true,
+                LookupSparse = new Dictionary<ushort, byte>(),
+                CountAdditions = 0,
+            };
+
+            using var estimator = new ConcurrentCardinalityEstimator(customSpanHash, state);
+            estimator.Add(BitConverter.GetBytes(42));
+
+            Assert.True(callCount > 0, "Custom span hash delegate was never invoked -- ctor silently replaced it with the default.");
+        }
     }
 }
