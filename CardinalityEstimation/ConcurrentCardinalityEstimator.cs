@@ -172,7 +172,7 @@ namespace CardinalityEstimation
             var state = other.GetState();
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
-            m = (int)Math.Pow(2, bitsPerIndex);
+            m = 1 << bitsPerIndex;
             alphaM = GetAlphaM(m);
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
@@ -202,7 +202,7 @@ namespace CardinalityEstimation
                 var state = other.GetStateInternal();
                 bitsPerIndex = state.BitsPerIndex;
                 bitsForHll = (byte)(64 - bitsPerIndex);
-                m = (int)Math.Pow(2, bitsPerIndex);
+                m = 1 << bitsPerIndex;
                 alphaM = GetAlphaM(m);
                 subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
@@ -264,7 +264,7 @@ namespace CardinalityEstimation
         {
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
-            m = (int)Math.Pow(2, bitsPerIndex);
+            m = 1 << bitsPerIndex;
             alphaM = GetAlphaM(m);
             subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
