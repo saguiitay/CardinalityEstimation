@@ -16,7 +16,8 @@
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
         <PackageReleaseNotes>Hardened CardinalityEstimatorSerializer against DoS via maliciously crafted input (validates bitsPerIndex and all length-prefixed counts before allocating)
 Switched target frameworks from net8.0/net9.0 to net8.0/net10.0
-Updated System.IO.Hashing dependency from 8.0.0 to 10.0.7</PackageReleaseNotes>
+Updated System.IO.Hashing dependency from 8.0.0 to 10.0.7
+Fixed ConcurrentCardinalityEstimator direct-count storage: replaced ConcurrentBag&lt;ulong&gt; (which forced O(n) Distinct() on every Add/Count/Merge/Equals) with ConcurrentDictionary used as a concurrent hash set, restoring O(1) operations with no per-call allocations</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
