@@ -255,9 +255,20 @@ namespace CardinalityEstimation
             }
 
             int bitsPerIndex = reader.ReadInt32();
+            if (bitsPerIndex < 4 || bitsPerIndex > 16)
+            {
+                throw new SerializationException(
+                    string.Format("Invalid BitsPerIndex value {0}; must be in the range [4, 16]", bitsPerIndex));
+            }
+
             byte flags = reader.ReadByte();
             bool isSparse = (flags & 2) == 2;
             bool isDirectCount = (flags & 1) == 1;
+
+            // Maximum number of entries in each representation, derived from the validated bitsPerIndex
+            int maxDenseCount = 1 << bitsPerIndex;          // 2^bitsPerIndex, at most 2^16 = 65536
+            const int maxDirectCount = 100;                  // DirectCounterMaxElements
+            const int maxSparseCount = ushort.MaxValue + 1; // ushort key space = 65536
 
             HashSet<ulong> directCount = null;
             IDictionary<ushort, byte> lookupSparse = isSparse ? new Dictionary<ushort, byte>() : null;
@@ -266,6 +277,12 @@ namespace CardinalityEstimation
             if (isDirectCount)
             {
                 int count = reader.ReadInt32();
+                if (count < 0 || count > maxDirectCount)
+                {
+                    throw new SerializationException(
+                        string.Format("Invalid DirectCount size {0}; must be in the range [0, {1}]", count, maxDirectCount));
+                }
+
                 directCount = new HashSet<ulong>();
 
                 for (var i = 0; i < count; i++)
@@ -277,6 +294,11 @@ namespace CardinalityEstimation
             else if (isSparse)
             {
                 int count = reader.ReadInt32();
+                if (count < 0 || count > maxSparseCount)
+                {
+                    throw new SerializationException(
+                        string.Format("Invalid LookupSparse size {0}; must be in the range [0, {1}]", count, maxSparseCount));
+                }
 
                 for (var i = 0; i < count; i++)
                 {
@@ -288,6 +310,12 @@ namespace CardinalityEstimation
             else
             {
                 int count = reader.ReadInt32();
+                if (count != maxDenseCount)
+                {
+                    throw new SerializationException(
+                        string.Format("Invalid LookupDense size {0}; expected {1} for BitsPerIndex={2}", count, maxDenseCount, bitsPerIndex));
+                }
+
                 lookupDense = reader.ReadBytes(count);
             }
 
