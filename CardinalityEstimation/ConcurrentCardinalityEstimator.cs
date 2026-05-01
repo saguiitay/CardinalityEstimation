@@ -122,6 +122,20 @@ namespace CardinalityEstimation
         private readonly ReaderWriterLockSlim lockSlim;
 
         /// <summary>
+        /// Monotonically-increasing per-instance ID used to impose a total order on instances
+        /// when acquiring two locks together (e.g., in <see cref="Merge"/> and <see cref="Equals(object)"/>).
+        /// Using a unique ID instead of <see cref="object.GetHashCode"/> guarantees the ordering is
+        /// strict (never equal for two distinct instances) and therefore deadlock-free.
+        /// </summary>
+        [NonSerialized]
+        private readonly long instanceId;
+
+        /// <summary>
+        /// Source for <see cref="instanceId"/> values; incremented atomically per allocation.
+        /// </summary>
+        private static long instanceIdCounter;
+
+        /// <summary>
         /// Tracks if this instance has been disposed
         /// </summary>
         private volatile bool disposed;
@@ -163,6 +177,7 @@ namespace CardinalityEstimation
             subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+            instanceId = Interlocked.Increment(ref instanceIdCounter);
 
             // Init the hash function - use default since we can't get it from the other estimator
             hashFunction = ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
@@ -193,6 +208,7 @@ namespace CardinalityEstimation
                 subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
                 lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+            instanceId = Interlocked.Increment(ref instanceIdCounter);
                 hashFunction = other.hashFunction;
                 sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -255,6 +271,7 @@ namespace CardinalityEstimation
             subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+            instanceId = Interlocked.Increment(ref instanceIdCounter);
 
             sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -544,8 +561,9 @@ namespace CardinalityEstimation
                     "Cannot merge ConcurrentCardinalityEstimator instances with different accuracy/map sizes");
             }
 
-            // Lock both instances in a consistent order to prevent deadlocks
-            var lockOrder = GetHashCode() < other.GetHashCode() ? new[] { this, other } : new[] { other, this };
+            // Lock both instances in a consistent order to prevent deadlocks. Use the unique
+            // per-instance ID rather than GetHashCode() so the ordering is strict and total.
+            var lockOrder = instanceId < other.instanceId ? new[] { this, other } : new[] { other, this };
             
             lockOrder[0].lockSlim.EnterWriteLock();
             try
@@ -1054,8 +1072,9 @@ namespace CardinalityEstimation
                 return false;
             }
 
-            // For thread safety, we need to lock both instances
-            var lockOrder = GetHashCode() < other.GetHashCode() ? new[] { this, other } : new[] { other, this };
+            // For thread safety, we need to lock both instances. Use the unique per-instance ID
+            // rather than GetHashCode() so the ordering is strict and total (deadlock-free).
+            var lockOrder = instanceId < other.instanceId ? new[] { this, other } : new[] { other, this };
             
             lockOrder[0].lockSlim.EnterReadLock();
             try

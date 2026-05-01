@@ -29,6 +29,7 @@ namespace CardinalityEstimation.Test
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Reflection;
     using System.Threading;
     using System.Threading.Tasks;
     using Xunit;
@@ -666,6 +667,78 @@ namespace CardinalityEstimation.Test
             finally
             {
                 foreach (var e in estimators) e?.Dispose();
+            }
+        }
+
+        [Fact]
+        public void InstanceId_IsUniquePerInstance()
+        {
+            // Lock ordering relies on instanceId being strictly distinct between instances —
+            // GetHashCode() can collide and produce undefined ordering, which is the bug this
+            // field replaces. Verify uniqueness across a batch of allocations.
+            const int count = 1000;
+            var ids = new HashSet<long>();
+            var instances = new ConcurrentCardinalityEstimator[count];
+            try
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    instances[i] = new ConcurrentCardinalityEstimator(b: 14);
+                    var id = (long)typeof(ConcurrentCardinalityEstimator)
+                        .GetField("instanceId", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .GetValue(instances[i]);
+                    Assert.True(ids.Add(id), $"Duplicate instanceId {id} at index {i}");
+                }
+            }
+            finally
+            {
+                foreach (var e in instances) e?.Dispose();
+            }
+        }
+
+        [Fact]
+        public void Merge_CrossPairs_HighConcurrency_DoesNotDeadlock()
+        {
+            // Regression test: prior to the fix, Merge ordered locks by GetHashCode(), which
+            // can collide between two distinct instances and yield inconsistent ordering across
+            // threads — opening a deadlock window when threads merge the same pair in opposite
+            // directions. With the per-instance ID, ordering is total and deadlock-free.
+            const int pairCount = 16;
+            const int iterations = 200;
+            var pairs = new (ConcurrentCardinalityEstimator a, ConcurrentCardinalityEstimator b)[pairCount];
+            try
+            {
+                for (int i = 0; i < pairCount; i++)
+                {
+                    pairs[i] = (new ConcurrentCardinalityEstimator(b: 12), new ConcurrentCardinalityEstimator(b: 12));
+                    pairs[i].a.Add($"a{i}");
+                    pairs[i].b.Add($"b{i}");
+                }
+
+                var tasks = new Task[pairCount * 2];
+                for (int i = 0; i < pairCount; i++)
+                {
+                    var p = pairs[i];
+                    tasks[2 * i] = Task.Run(() =>
+                    {
+                        for (int k = 0; k < iterations; k++) p.a.Merge(p.b);
+                    });
+                    tasks[2 * i + 1] = Task.Run(() =>
+                    {
+                        for (int k = 0; k < iterations; k++) p.b.Merge(p.a);
+                    });
+                }
+
+                Assert.True(Task.WaitAll(tasks, TimeSpan.FromSeconds(30)),
+                    "Cross-pair Merge tasks did not complete within 30s — possible deadlock.");
+            }
+            finally
+            {
+                foreach (var (a, b) in pairs)
+                {
+                    a?.Dispose();
+                    b?.Dispose();
+                }
             }
         }
 

@@ -27,7 +27,8 @@ Added null-argument validation to ConcurrentCardinalityEstimator.Add(string) and
 Compute m via bit shift (1 &lt;&lt; bitsPerIndex) instead of (int)Math.Pow(2, bitsPerIndex) in constructors
 Documented the intentionally empty version-3 branch in CardinalityEstimatorSerializer.Read
 Consolidated duplicated constants (DirectCounterMaxElements, StackallocByteThreshold) and helpers (GetAlphaM, GetSubAlgorithmSelectionThreshold, CreateEmptyState) into HllConstants
-Honored parallelismDegree in ConcurrentCardinalityEstimator.ParallelMerge and removed dead ParallelQuery variable</PackageReleaseNotes>
+Honored parallelismDegree in ConcurrentCardinalityEstimator.ParallelMerge and removed dead ParallelQuery variable
+Replaced GetHashCode-based lock ordering in ConcurrentCardinalityEstimator.Merge/Equals with a unique per-instance ID to eliminate a deadlock window on hash collisions</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
