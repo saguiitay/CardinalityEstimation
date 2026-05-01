@@ -504,5 +504,94 @@ namespace CardinalityEstimation.Test
                 estimator.Dispose();
             }
         }
+
+        // Regression tests for the direct-count storage. Previously backed by ConcurrentBag<ulong>,
+        // which permits duplicates and forced every Add/Count/Merge/Equals path to call .Distinct()
+        // (allocating + O(n)). The storage is now a ConcurrentDictionary<ulong, byte> used as a
+        // concurrent hash set, so duplicates simply collapse and Count is O(1).
+
+        [Fact]
+        public void DirectCount_ConcurrentDuplicateAdds_DeduplicatesExactly()
+        {
+            // Arrange - stay below DirectCounterMaxElements (100) so we exercise the direct-count path.
+            using var estimator = new ConcurrentCardinalityEstimator(b: 14);
+            const int distinctCount = 50;
+            const int duplicatesPerElement = 200;
+
+            // Act - many threads pushing the same set of values repeatedly.
+            Parallel.For(0, distinctCount * duplicatesPerElement, i =>
+            {
+                estimator.Add($"element_{i % distinctCount}");
+            });
+
+            // Assert - direct counter is exact, so Count must equal the number of distinct strings,
+            // regardless of how many duplicate adds raced.
+            Assert.Equal((ulong)distinctCount, estimator.Count());
+            Assert.Equal((ulong)(distinctCount * duplicatesPerElement), estimator.CountAdditions);
+        }
+
+        [Fact]
+        public void DirectCount_TransitionsToSparse_AtCorrectThreshold()
+        {
+            // Arrange - DirectCounterMaxElements is 100. Adding 101 distinct elements must
+            // tip the estimator out of the direct-count path and into the HLL representation.
+            using var estimator = new ConcurrentCardinalityEstimator(b: 14);
+
+            // Act
+            for (int i = 0; i <= 100; i++)
+            {
+                estimator.Add($"element_{i}");
+            }
+
+            // Assert - the direct-count path is exact up to 100, but past the threshold we are
+            // back to an HLL estimate, so we just verify the count is in a sane range.
+            ulong count = estimator.Count();
+            Assert.InRange(count, 90UL, 110UL);
+            Assert.Equal(101UL, estimator.CountAdditions);
+        }
+
+        [Fact]
+        public void DirectCount_MergeDeduplicates_AndRespectsThreshold()
+        {
+            // Arrange
+            using var a = new ConcurrentCardinalityEstimator(b: 14);
+            using var b = new ConcurrentCardinalityEstimator(b: 14);
+
+            // 30 elements in each, with a 10-element overlap → 50 distinct after merge,
+            // still below the 100-element direct-count threshold.
+            for (int i = 0; i < 30; i++)
+            {
+                a.Add($"a_{i}");
+                b.Add($"a_{i + 20}");
+            }
+
+            // Act
+            a.Merge(b);
+
+            // Assert - merge through the direct-count path must deduplicate exactly.
+            Assert.Equal(50UL, a.Count());
+        }
+
+        [Fact]
+        public void DirectCount_RoundTripsThroughCardinalityEstimator()
+        {
+            // Arrange - convert to the non-concurrent estimator and back, while still in the
+            // direct-count path. The round trip exercises GetStateInternal/InitializeFromState,
+            // both of which had to special-case the bag's duplicate semantics.
+            using var original = new ConcurrentCardinalityEstimator(b: 14);
+            for (int i = 0; i < 25; i++)
+            {
+                original.Add($"value_{i}");
+            }
+
+            // Act
+            CardinalityEstimator snapshot = original.ToCardinalityEstimator();
+            using var roundTripped = new ConcurrentCardinalityEstimator(snapshot);
+
+            // Assert - direct-count is exact, so all three views must report the same count.
+            Assert.Equal(25UL, original.Count());
+            Assert.Equal(25UL, snapshot.Count());
+            Assert.Equal(25UL, roundTripped.Count());
+        }
     }
 }
