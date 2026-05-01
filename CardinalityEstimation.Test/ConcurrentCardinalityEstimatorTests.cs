@@ -868,5 +868,21 @@ namespace CardinalityEstimation.Test
 
             Assert.True(callCount > 0, "Custom span hash delegate was never invoked -- ctor silently replaced it with the default.");
         }
+
+        [Fact]
+        public void AddString_ThrowsArgumentNullException_WhenElementIsNull()
+        {
+            using var estimator = new ConcurrentCardinalityEstimator();
+            var ex = Assert.Throws<ArgumentNullException>(() => estimator.Add((string)null));
+            Assert.Equal("element", ex.ParamName);
+        }
+
+        [Fact]
+        public void AddByteArray_ThrowsArgumentNullException_WhenElementIsNull()
+        {
+            using var estimator = new ConcurrentCardinalityEstimator();
+            var ex = Assert.Throws<ArgumentNullException>(() => estimator.Add((byte[])null));
+            Assert.Equal("element", ex.ParamName);
+        }
     }
 }
