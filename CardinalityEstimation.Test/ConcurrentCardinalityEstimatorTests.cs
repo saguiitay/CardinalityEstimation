@@ -784,5 +784,48 @@ namespace CardinalityEstimation.Test
             Assert.Equal(25UL, snapshot.Count());
             Assert.Equal(25UL, roundTripped.Count());
         }
+
+        // ---------------------------------------------------------------------
+        // Regression tests for the zero-allocation primitive Add overloads.
+        // See CardinalityEstimatorTests for the full rationale; these mirror
+        // the same invariant on the concurrent estimator.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Add_PrimitiveAndByteArray_ProduceSameHash()
+        {
+            using var hll = new ConcurrentCardinalityEstimator(b: 14);
+            hll.Add(123);
+            hll.Add(BitConverter.GetBytes(123));
+            hll.Add(456u);
+            hll.Add(BitConverter.GetBytes(456u));
+            hll.Add(789L);
+            hll.Add(BitConverter.GetBytes(789L));
+            hll.Add(1011UL);
+            hll.Add(BitConverter.GetBytes(1011UL));
+            hll.Add(3.14f);
+            hll.Add(BitConverter.GetBytes(3.14f));
+            hll.Add(2.71828);
+            hll.Add(BitConverter.GetBytes(2.71828));
+
+            Assert.Equal(12UL, hll.CountAdditions);
+            Assert.Equal(6UL, hll.Count());
+        }
+
+        [Fact]
+        public void Add_String_StackallocAndHeapPath_AgreeWithByteArray()
+        {
+            using var hll = new ConcurrentCardinalityEstimator(b: 14);
+            const string shortStr = "hello world";
+            hll.Add(shortStr);
+            hll.Add(System.Text.Encoding.UTF8.GetBytes(shortStr));
+            Assert.Equal(1UL, hll.Count());
+
+            using var hll2 = new ConcurrentCardinalityEstimator(b: 14);
+            string longStr = new string('x', 200);
+            hll2.Add(longStr);
+            hll2.Add(System.Text.Encoding.UTF8.GetBytes(longStr));
+            Assert.Equal(1UL, hll2.Count());
+        }
     }
 }

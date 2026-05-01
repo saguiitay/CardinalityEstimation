@@ -26,6 +26,7 @@
 namespace CardinalityEstimation
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Generic;
     using System.Text;
     using Hash;
@@ -75,6 +76,13 @@ namespace CardinalityEstimation
         /// Max number of elements to hold in the direct representation
         /// </summary>
         private const int DirectCounterMaxElements = 100;
+
+        /// <summary>
+        /// Maximum number of bytes a string can encode to before <see cref="Add(string)"/>
+        /// falls back to a heap allocation. Strings whose UTF-8 max-byte-count is at or below
+        /// this threshold are encoded into a stackalloc buffer to avoid GC pressure.
+        /// </summary>
+        private const int StackallocByteThreshold = 256;
         #endregion
 
         #region Private fields
@@ -314,8 +322,22 @@ namespace CardinalityEstimation
         {
             if (element == null)
                 throw new ArgumentNullException(nameof(element));
-                
-            ulong hashCode = hashFunction(Encoding.UTF8.GetBytes(element));
+
+            ulong hashCode;
+            // Avoid heap-allocating a temporary byte[] for short strings by encoding into a
+            // stack buffer and hashing through the span delegate. UTF-8 is endian-independent,
+            // so the resulting bytes are identical to Encoding.UTF8.GetBytes(element).
+            if (Encoding.UTF8.GetMaxByteCount(element.Length) <= StackallocByteThreshold)
+            {
+                Span<byte> bytes = stackalloc byte[StackallocByteThreshold];
+                int written = Encoding.UTF8.GetBytes(element, bytes);
+                hashCode = hashFunctionSpan(bytes.Slice(0, written));
+            }
+            else
+            {
+                hashCode = hashFunctionSpan(Encoding.UTF8.GetBytes(element));
+            }
+
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -328,7 +350,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(int element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -341,7 +365,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(uint element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -354,7 +380,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(long element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(long)];
+            BinaryPrimitives.WriteInt64LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -367,7 +395,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(ulong element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(ulong)];
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -380,7 +410,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(float element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(float)];
+            BinaryPrimitives.WriteSingleLittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;
@@ -393,7 +425,9 @@ namespace CardinalityEstimation
         /// <returns>True if the estimator's state was modified, false otherwise</returns>
         public bool Add(double element)
         {
-            ulong hashCode = hashFunction(BitConverter.GetBytes(element));
+            Span<byte> bytes = stackalloc byte[sizeof(double)];
+            BinaryPrimitives.WriteDoubleLittleEndian(bytes, element);
+            ulong hashCode = hashFunctionSpan(bytes);
             bool changed = AddElementHash(hashCode);
             CountAdditions++;
             return changed;

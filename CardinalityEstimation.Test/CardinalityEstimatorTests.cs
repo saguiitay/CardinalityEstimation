@@ -633,5 +633,58 @@ namespace CardinalityEstimation.Test
             for (int i = 0; i < 50; i++) b.Add($"b_{i}");
             Assert.False(a.Equals(b));
         }
+
+        // ---------------------------------------------------------------------
+        // Regression tests for the zero-allocation primitive Add overloads.
+        //
+        // The Add(int/uint/long/ulong/float/double) overloads previously called
+        // BitConverter.GetBytes(...) which heap-allocated a byte[] every call.
+        // They now use stackalloc + BinaryPrimitives.WriteXxxLittleEndian +
+        // hashFunctionSpan. The byte sequence written is identical to
+        // BitConverter.GetBytes on every supported (little-endian) .NET runtime,
+        // so the hashes — and therefore the cardinality estimate — must match
+        // the equivalent Add(byte[]) call. These tests pin that invariant.
+        // ---------------------------------------------------------------------
+
+        [Fact]
+        public void Add_PrimitiveAndByteArray_ProduceSameHash()
+        {
+            var hll = new CardinalityEstimator(b: 14);
+            hll.Add(123);
+            hll.Add(BitConverter.GetBytes(123));
+            hll.Add(456u);
+            hll.Add(BitConverter.GetBytes(456u));
+            hll.Add(789L);
+            hll.Add(BitConverter.GetBytes(789L));
+            hll.Add(1011UL);
+            hll.Add(BitConverter.GetBytes(1011UL));
+            hll.Add(3.14f);
+            hll.Add(BitConverter.GetBytes(3.14f));
+            hll.Add(2.71828);
+            hll.Add(BitConverter.GetBytes(2.71828));
+
+            // 12 Add calls, but each value-pair must hash to the same bucket and dedupe.
+            Assert.Equal(12UL, hll.CountAdditions);
+            Assert.Equal(6UL, hll.Count());
+        }
+
+        [Fact]
+        public void Add_String_StackallocAndHeapPath_AgreeWithByteArray()
+        {
+            // Short string: hits the stackalloc path (UTF-8 max bytes <= threshold).
+            var hll = new CardinalityEstimator(b: 14);
+            const string shortStr = "hello world";
+            hll.Add(shortStr);
+            hll.Add(System.Text.Encoding.UTF8.GetBytes(shortStr));
+            Assert.Equal(1UL, hll.Count());
+            Assert.Equal(2UL, hll.CountAdditions);
+
+            // Long string: forces the heap fallback (UTF-8 max bytes > threshold).
+            var hll2 = new CardinalityEstimator(b: 14);
+            string longStr = new string('x', 200); // max UTF-8 bytes = 600 > 256
+            hll2.Add(longStr);
+            hll2.Add(System.Text.Encoding.UTF8.GetBytes(longStr));
+            Assert.Equal(1UL, hll2.Count());
+        }
     }
 }
