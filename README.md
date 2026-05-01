@@ -157,6 +157,9 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 
 ## Release Notes
 
+### 1.15.0
+- Hardened `CardinalityEstimatorSerializer` against denial-of-service via a maliciously crafted input stream: `bitsPerIndex` and all length-prefixed counts (direct / sparse / dense) are now validated before any allocation.
+
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
 - Added `ConcurrentCardinalityEstimator` for thread-safe usage, plus `ParallelMerge` / `SafeMerge` extensions.
