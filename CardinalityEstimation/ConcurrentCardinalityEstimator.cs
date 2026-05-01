@@ -246,10 +246,14 @@ namespace CardinalityEstimation
         {
             // Init the hash function
             this.hashFunctionSpan = hashFunctionSpan;
-            if (this.hashFunction == null)
+            if (this.hashFunctionSpan == null)
             {
                 this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
                 this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+            else
+            {
+                this.hashFunction = (x) => hashFunctionSpan(x);
             }
         }
 
