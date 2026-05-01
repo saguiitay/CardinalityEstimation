@@ -233,6 +233,52 @@ namespace CardinalityEstimation.Test
             Assert.Equal(expectedBitsPerIndex, result.GetState().BitsPerIndex);
         }
 
+        /// <summary>
+        /// Regression: <see cref="CardinalityEstimator.Merge(System.Collections.Generic.IEnumerable{CardinalityEstimator})"/>
+        /// previously initialized <c>result</c> from the first non-null estimator and then immediately
+        /// merged the same estimator into <c>result</c>, double-counting <see cref="CardinalityEstimator.CountAdditions"/>
+        /// for the seed element. (Was masked by a separate bug in the copy constructor that did not copy CountAdditions.)
+        /// CountAdditions on the merged result must equal the sum of CountAdditions across all input estimators.
+        /// </summary>
+        [Fact]
+        public void StaticMerge_SumsCountAdditions_DoesNotDoubleCountFirstElement()
+        {
+            var a = new CardinalityEstimator(b: 14);
+            var b = new CardinalityEstimator(b: 14);
+            var c = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 10; i++) a.Add(i);
+            for (int i = 10; i < 25; i++) b.Add(i);
+            for (int i = 25; i < 45; i++) c.Add(i);
+
+            Assert.Equal(10UL, a.CountAdditions);
+            Assert.Equal(15UL, b.CountAdditions);
+            Assert.Equal(20UL, c.CountAdditions);
+
+            CardinalityEstimator merged = CardinalityEstimator.Merge(new[] { a, b, c });
+            Assert.Equal(45UL, merged.CountAdditions);
+
+            // Single-element merge must also be exact (not 2x).
+            CardinalityEstimator single = CardinalityEstimator.Merge(new[] { a });
+            Assert.Equal(10UL, single.CountAdditions);
+        }
+
+        /// <summary>
+        /// Regression: the copy constructor previously left <see cref="CardinalityEstimator.CountAdditions"/>
+        /// at its default (0) instead of copying it from the source. A clone must be observationally
+        /// equivalent to the original, including CountAdditions.
+        /// </summary>
+        [Fact]
+        public void CopyConstructor_PreservesCountAdditions()
+        {
+            var original = new CardinalityEstimator(b: 14);
+            for (int i = 0; i < 17; i++) original.Add(i);
+            Assert.Equal(17UL, original.CountAdditions);
+
+            var clone = new CardinalityEstimator(original);
+            Assert.Equal(original.CountAdditions, clone.CountAdditions);
+            Assert.Equal(original.Count(), clone.Count());
+        }
+
         private void RunRecreationFromData(int cardinality = 1000000)
         {
             var hll = new CardinalityEstimator();
