@@ -55,7 +55,7 @@ namespace CardinalityEstimation
     /// </summary>
     /// <remarks>
     /// <para>1. This implementation is not thread-safe. For thread-safe operations, use <see cref="ConcurrentCardinalityEstimator"/>.</para>
-    /// <para>2. By default, it uses the 128-bit XxHash128 hash function from .NET 9+. 
+    /// <para>2. By default, it uses the 128-bit XxHash128 hash function from System.IO.Hashing. 
     ///    For custom hash functions, provide your own delegate to the constructor.</para>
     /// <para>3. Estimation is perfect up to 100 elements, then approximate</para>
     /// <para>4. The estimator automatically switches between three different counting strategies based on the number of elements:
