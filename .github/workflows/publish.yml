@@ -1,0 +1,59 @@
+name: Publish to NuGet
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE.md'
+      - 'ROADMAP.md'
+      - '.gitignore'
+      - '.github/**'
+      - '!.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-nuget
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build -c Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test -c Release --no-build --verbosity normal
+
+      - name: Pack (Release)
+        run: dotnet pack CardinalityEstimation/CardinalityEstimation.csproj -c Release --no-build -o ${{ github.workspace }}/Release/nuget
+
+      - name: Build (Release-Signed)
+        run: dotnet build CardinalityEstimation/CardinalityEstimation.csproj -c Release-Signed --no-restore
+
+      - name: Pack (Release-Signed)
+        run: dotnet pack CardinalityEstimation/CardinalityEstimation.csproj -c Release-Signed --no-build -o ${{ github.workspace }}/Release/nuget
+
+      - name: Push to NuGet
+        run: |
+          for file in Release/nuget/CardinalityEstimation*.nupkg; do
+            dotnet nuget push -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate "$file"
+          done
