@@ -242,6 +242,29 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
+        /// Creates a CardinalityEstimator preserving both the byte-array and span hash functions
+        /// supplied by the caller. Used by lossless conversions where both delegates of a source
+        /// estimator should be kept intact (instead of synthesising one from the other).
+        /// </summary>
+        /// <param name="hashFunction">Byte-array hash function. If null, a default XxHash128 delegate is created.</param>
+        /// <param name="hashFunctionSpan">Span hash function. If null, falls back to wrapping <paramref name="hashFunction"/>.</param>
+        /// <param name="state">The state to initialize the estimator with</param>
+        internal CardinalityEstimator(GetHashCodeDelegate hashFunction, GetHashCodeSpanDelegate hashFunctionSpan, CardinalityEstimatorState state)
+            : this(state)
+        {
+            if (hashFunction == null && hashFunctionSpan == null)
+            {
+                this.hashFunction = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+                this.hashFunctionSpan = (x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x));
+            }
+            else
+            {
+                this.hashFunction = hashFunction ?? ((x) => hashFunctionSpan(x));
+                this.hashFunctionSpan = hashFunctionSpan ?? ((x) => hashFunction(x.ToArray()));
+            }
+        }
+
+        /// <summary>
         /// Creates a CardinalityEstimator from serialized state
         /// </summary>
         /// <param name="state">The state to restore the estimator from</param>
@@ -296,6 +319,21 @@ namespace CardinalityEstimation
         /// </summary>
         /// <value>The count of all addition operations performed</value>
         public ulong CountAdditions { get; private set; }
+
+        /// <summary>
+        /// Gets the byte-array hash function used by this estimator. Returned so that callers
+        /// (e.g. <see cref="ConcurrentCardinalityEstimator(CardinalityEstimator)"/>) can preserve
+        /// the original hash function across conversions and copies, making such operations lossless
+        /// even when a non-default hash was supplied.
+        /// </summary>
+        public GetHashCodeDelegate HashFunction => hashFunction;
+
+        /// <summary>
+        /// Gets the span hash function used by this estimator (the zero-allocation path used by the
+        /// <c>Span&lt;byte&gt;</c> / <c>ReadOnlySpan&lt;byte&gt;</c> / <c>Memory&lt;byte&gt;</c> overloads).
+        /// Exposed for the same lossless-conversion reason as <see cref="HashFunction"/>.
+        /// </summary>
+        public GetHashCodeSpanDelegate HashFunctionSpan => hashFunctionSpan;
         #endregion
 
         #region Public methods

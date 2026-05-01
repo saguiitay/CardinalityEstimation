@@ -179,8 +179,13 @@ namespace CardinalityEstimation
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
             instanceId = Interlocked.Increment(ref instanceIdCounter);
 
-            // Init the hash function - use default since we can't get it from the other estimator
-            hashFunction = ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
+            // Preserve the source estimator's hash functions so the conversion is lossless even
+            // when a non-default hash (e.g. Murmur3, FNV-1a, or a custom delegate) was supplied
+            // to the original CardinalityEstimator.
+            hashFunction = other.HashFunction
+                ?? ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
+            hashFunctionSpan = other.HashFunctionSpan
+                ?? ((x) => BitConverter.ToUInt64(System.IO.Hashing.XxHash128.Hash(x)));
 
             sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
@@ -322,6 +327,22 @@ namespace CardinalityEstimation
 
         #region Public properties
         public ulong CountAdditions => (ulong)Interlocked.Read(ref countAdditions);
+
+        /// <summary>
+        /// Gets the byte-array hash function used by this estimator. Returned so that callers
+        /// (e.g. <see cref="ToCardinalityEstimator"/>) can preserve the original hash function
+        /// across conversions and copies, making such operations lossless even when a non-default
+        /// hash was supplied. Safe to read without a lock — the field is set once at construction
+        /// and never reassigned afterwards.
+        /// </summary>
+        public GetHashCodeDelegate HashFunction => hashFunction;
+
+        /// <summary>
+        /// Gets the span hash function used by this estimator (the zero-allocation path used by
+        /// the <c>Span&lt;byte&gt;</c> / <c>ReadOnlySpan&lt;byte&gt;</c> / <c>Memory&lt;byte&gt;</c>
+        /// overloads). Exposed for the same lossless-conversion reason as <see cref="HashFunction"/>.
+        /// </summary>
+        public GetHashCodeSpanDelegate HashFunctionSpan => hashFunctionSpan;
         #endregion
 
         #region Public methods
@@ -628,7 +649,7 @@ namespace CardinalityEstimation
             try
             {
                 var state = GetStateInternal();
-                return new CardinalityEstimator(hashFunction, state);
+                return new CardinalityEstimator(hashFunction, hashFunctionSpan, state);
             }
             finally
             {

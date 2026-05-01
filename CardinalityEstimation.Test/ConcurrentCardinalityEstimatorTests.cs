@@ -32,6 +32,7 @@ namespace CardinalityEstimation.Test
     using System.Reflection;
     using System.Threading;
     using System.Threading.Tasks;
+    using CardinalityEstimation.Hash;
     using Xunit;
 
     public class ConcurrentCardinalityEstimatorTests
@@ -856,6 +857,55 @@ namespace CardinalityEstimation.Test
             Assert.Equal(25UL, original.Count());
             Assert.Equal(25UL, snapshot.Count());
             Assert.Equal(25UL, roundTripped.Count());
+        }
+
+        [Fact]
+        public void Convert_CardinalityEstimatorToConcurrent_PreservesCustomHashFunction()
+        {
+            // Regression: the CardinalityEstimator -> ConcurrentCardinalityEstimator conversion
+            // used to silently drop the source hash function and substitute the default XxHash128,
+            // because CardinalityEstimator exposed no API to read it back. Now that HashFunction
+            // is public, the conversion preserves it (verified by reference equality).
+            GetHashCodeDelegate custom = Fnv1A.GetHashCode;
+            var source = new CardinalityEstimator(custom, b: 14);
+            source.Add("alice");
+            source.Add("bob");
+
+            using var converted = new ConcurrentCardinalityEstimator(source);
+
+            Assert.Same(custom, converted.HashFunction);
+            Assert.Equal(2UL, converted.Count());
+        }
+
+        [Fact]
+        public void Convert_ConcurrentToCardinalityEstimator_PreservesBothHashFunctions()
+        {
+            // Regression: ToCardinalityEstimator passed only the byte-array delegate to the target
+            // ctor, which then synthesised a span delegate as (x) => hashFunction(x.ToArray()).
+            // That defeated the zero-allocation span path on the converted instance. The new
+            // internal ctor that accepts both delegates is now used so both paths survive intact.
+            GetHashCodeDelegate custom = Murmur3.GetHashCode;
+            using var source = new ConcurrentCardinalityEstimator(custom, b: 14);
+            source.Add("x");
+
+            CardinalityEstimator snapshot = source.ToCardinalityEstimator();
+
+            Assert.Same(source.HashFunction, snapshot.HashFunction);
+            Assert.Same(source.HashFunctionSpan, snapshot.HashFunctionSpan);
+            Assert.Equal(1UL, snapshot.Count());
+        }
+
+        [Fact]
+        public void HashFunction_Property_ReturnsSuppliedDelegate()
+        {
+            GetHashCodeDelegate custom = Fnv1A.GetHashCode;
+            using var ccle = new ConcurrentCardinalityEstimator(custom, b: 14);
+            var cle = new CardinalityEstimator(custom, b: 14);
+
+            Assert.Same(custom, ccle.HashFunction);
+            Assert.Same(custom, cle.HashFunction);
+            Assert.NotNull(ccle.HashFunctionSpan);
+            Assert.NotNull(cle.HashFunctionSpan);
         }
 
         // ---------------------------------------------------------------------
