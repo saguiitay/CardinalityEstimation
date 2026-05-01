@@ -155,6 +155,19 @@ estimator.Add(buffer); // no allocation
 
 These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-array allocation of the legacy path.
 
+## Code Coverage
+
+Coverage is collected locally with [`dotnet-coverage`](https://learn.microsoft.com/en-us/dotnet/core/additional-tools/dotnet-coverage), pinned as a [local .NET tool](https://learn.microsoft.com/en-us/dotnet/core/tools/local-tools-how-to-use) in `.config/dotnet-tools.json`. From a fresh checkout:
+
+```bash
+dotnet tool restore
+dotnet build
+dotnet dotnet-coverage collect --output-format cobertura --output coverage.xml \
+    "dotnet test --no-build --nologo"
+```
+
+The resulting `coverage.xml` is gitignored and can be fed into ReportGenerator, Codecov, or any Cobertura-aware viewer.CI does not currently collect coverage — this is a developer-local workflow.
+
 ## Release Notes
 
 ### 1.15.0
@@ -174,6 +187,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Honored `parallelismDegree` in `ConcurrentCardinalityEstimator.ParallelMerge` and removed dead `ParallelQuery` variable.
 - Replaced `GetHashCode`-based lock ordering in `ConcurrentCardinalityEstimator.Merge`/`Equals` with a unique per-instance ID to eliminate a deadlock window on hash collisions.
 - Exposed `HashFunction`/`HashFunctionSpan` properties on `CardinalityEstimator` and `ConcurrentCardinalityEstimator` and made cross-type conversions preserve the source hash functions losslessly.
+- Replaced the unused `coverlet.collector` test package with a `dotnet-coverage` local tool manifest; coverage is now a developer-local opt-in via `dotnet tool restore` + `dotnet dotnet-coverage collect`.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
