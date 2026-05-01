@@ -173,6 +173,7 @@ These overloads route through a `GetHashCodeSpanDelegate` and avoid the byte-arr
 - Consolidated duplicated constants (`DirectCounterMaxElements`, `StackallocByteThreshold`) and helpers (`GetAlphaM`, `GetSubAlgorithmSelectionThreshold`, `CreateEmptyState`) into `HllConstants`.
 - Honored `parallelismDegree` in `ConcurrentCardinalityEstimator.ParallelMerge` and removed dead `ParallelQuery` variable.
 - Replaced `GetHashCode`-based lock ordering in `ConcurrentCardinalityEstimator.Merge`/`Equals` with a unique per-instance ID to eliminate a deadlock window on hash collisions.
+- Exposed `HashFunction`/`HashFunctionSpan` properties on `CardinalityEstimator` and `ConcurrentCardinalityEstimator` and made cross-type conversions preserve the source hash functions losslessly.
 
 ### 1.14.0
 - Added support for `Span<byte>`, `ReadOnlySpan<byte>`, `Memory<byte>`, and `ReadOnlyMemory<byte>` via `ICardinalityEstimatorMemory` (zero-allocation hot path).
