@@ -157,10 +157,7 @@ namespace CardinalityEstimation
             else
             {
                 writer.Write(data.LookupDense.Length);
-                foreach (byte element in data.LookupDense)
-                {
-                    writer.Write(element);
-                }
+                writer.Write(data.LookupDense);
             }
 
             writer.Write(data.CountAdditions);

@@ -19,7 +19,8 @@ Switched target frameworks from net8.0/net9.0 to net8.0/net10.0
 Updated System.IO.Hashing dependency from 8.0.0 to 10.0.7
 Fixed ConcurrentCardinalityEstimator direct-count storage: replaced ConcurrentBag&lt;ulong&gt; (which forced O(n) Distinct() on every Add/Count/Merge/Equals) with ConcurrentDictionary used as a concurrent hash set, restoring O(1) operations with no per-call allocations
 Eliminated per-call heap allocations in primitive Add overloads (int/uint/long/ulong/float/double) by replacing BitConverter.GetBytes with stackalloc + BinaryPrimitives + the span hash delegate; Add(string) now also uses a stackalloc UTF-8 buffer for short strings
-Replaced per-bucket Math.Pow(2, -sigma) calls in Count() with a precomputed lookup table shared by both estimators (bit-equivalent results, removes a transcendental call from a loop that runs up to 65,536 times per Count())</PackageReleaseNotes>
+Replaced per-bucket Math.Pow(2, -sigma) calls in Count() with a precomputed lookup table shared by both estimators (bit-equivalent results, removes a transcendental call from a loop that runs up to 65,536 times per Count())
+Serializer now writes the dense lookup array (up to 65,536 bytes) in a single bulk BinaryWriter.Write(byte[]) call instead of one BinaryWriter.Write(byte) per element (byte-identical output)</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
