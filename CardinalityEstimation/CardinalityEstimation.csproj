@@ -25,7 +25,8 @@ Fixed CardinalityEstimator.Merge(IEnumerable) double-counting CountAdditions for
 Fixed ConcurrentCardinalityEstimator span-delegate constructor silently discarding the supplied delegate
 Added null-argument validation to ConcurrentCardinalityEstimator.Add(string) and Add(byte[]) for parity with CardinalityEstimator
 Compute m via bit shift (1 &lt;&lt; bitsPerIndex) instead of (int)Math.Pow(2, bitsPerIndex) in constructors
-Documented the intentionally empty version-3 branch in CardinalityEstimatorSerializer.Read</PackageReleaseNotes>
+Documented the intentionally empty version-3 branch in CardinalityEstimatorSerializer.Read
+Consolidated duplicated constants (DirectCounterMaxElements, StackallocByteThreshold) and helpers (GetAlphaM, GetSubAlgorithmSelectionThreshold, CreateEmptyState) into HllConstants</PackageReleaseNotes>
         <AssemblyVersion>1.15.0.0</AssemblyVersion>
         <FileVersion>1.15.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>

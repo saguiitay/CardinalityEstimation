@@ -72,17 +72,11 @@ namespace CardinalityEstimation
     {
 
         #region Private consts
-        /// <summary>
-        /// Max number of elements to hold in the direct representation
-        /// </summary>
-        private const int DirectCounterMaxElements = 100;
-
-        /// <summary>
-        /// Maximum number of bytes a string can encode to before <see cref="Add(string)"/>
-        /// falls back to a heap allocation. Strings whose UTF-8 max-byte-count is at or below
-        /// this threshold are encoded into a stackalloc buffer to avoid GC pressure.
-        /// </summary>
-        private const int StackallocByteThreshold = 256;
+        // DirectCounterMaxElements and StackallocByteThreshold moved to HllConstants
+        // so they can be shared with ConcurrentCardinalityEstimator. Aliased below
+        // as private consts to keep call sites readable.
+        private const int DirectCounterMaxElements = HllConstants.DirectCounterMaxElements;
+        private const int StackallocByteThreshold = HllConstants.StackallocByteThreshold;
 
         #endregion
 
@@ -175,7 +169,7 @@ namespace CardinalityEstimation
         /// Thrown when <paramref name="b"/> is not in the range [4, 16].
         /// </exception>
         public CardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
-            : this(hashFunction, CreateEmptyState(b, useDirectCounting))
+            : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting))
         { }
 
         /// <summary>
@@ -266,8 +260,8 @@ namespace CardinalityEstimation
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
             m = 1 << bitsPerIndex;
-            alphaM = GetAlphaM(m);
-            subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+            alphaM = HllConstants.GetAlphaM(m);
+            subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             // Init the direct count
             directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
@@ -725,84 +719,6 @@ namespace CardinalityEstimation
         }
 
         /// <summary>
-        /// Creates state for an empty CardinalityEstimator with DirectCount and LookupSparse empty, LookupDense null.
-        /// </summary>
-        /// <param name="b">Number of bits determining accuracy and memory consumption</param>
-        /// <param name="useDirectCount">
-        /// True if direct count should be used for up to <see cref="DirectCounterMaxElements"/> elements.
-        /// False if direct count should be avoided and use always estimation, even for low cardinalities.
-        /// </param>
-        /// <returns>A new empty state for a CardinalityEstimator</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when <paramref name="b"/> is not in the range [4, 16]
-        /// </exception>
-        private static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount)
-        {
-            if (b < 4 || b > 16)
-            {
-                throw new ArgumentOutOfRangeException(nameof(b), b, "Accuracy out of range, legal range is 4 <= BitsPerIndex <= 16");
-            }
-
-            return new CardinalityEstimatorState
-            {
-                BitsPerIndex = b,
-                DirectCount = useDirectCount ? new HashSet<ulong>() : null,
-                IsSparse = true,
-                LookupSparse = new Dictionary<ushort, byte>(),
-                LookupDense = null,
-                CountAdditions = 0,
-            };
-        }
-
-        /// <summary>
-        /// Returns the threshold determining whether to use LinearCounting or HyperLogLog for an estimate. 
-        /// Values are from the supplementary material of Heule et al.
-        /// </summary>
-        /// <param name="bits">Number of bits for the estimator</param>
-        /// <returns>The threshold value for algorithm selection</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when <paramref name="bits"/> is not in the supported range
-        /// </exception>
-        /// <see cref="http://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen#heading=h.nd379k1fxnux" />
-        private double GetSubAlgorithmSelectionThreshold(int bits)
-        {
-            switch (bits)
-            {
-                case 4:
-                    return 10;
-                case 5:
-                    return 20;
-                case 6:
-                    return 40;
-                case 7:
-                    return 80;
-                case 8:
-                    return 220;
-                case 9:
-                    return 400;
-                case 10:
-                    return 900;
-                case 11:
-                    return 1800;
-                case 12:
-                    return 3100;
-                case 13:
-                    return 6500;
-                case 14:
-                    return 11500;
-                case 15:
-                    return 20000;
-                case 16:
-                    return 50000;
-                case 17:
-                    return 120000;
-                case 18:
-                    return 350000;
-            }
-            throw new ArgumentOutOfRangeException(nameof(bits), "Unexpected number of bits (should never happen)");
-        }
-
-        /// <summary>
         /// Adds an element's hash code to the counted set
         /// </summary>
         /// <param name="hashCode">Hash code of the element to add</param>
@@ -840,26 +756,6 @@ namespace CardinalityEstimation
                 changed = changed || (prevMax != sigma && lookupDense[substream] == sigma);
             }
             return changed;
-        }
-
-        /// <summary>
-        /// Gets the appropriate value of alpha_M for the given <paramref name="m" /> for bias correction
-        /// </summary>
-        /// <param name="m">Size of the lookup table (2^bitsPerIndex)</param>
-        /// <returns>alpha_M value for bias correction in HyperLogLog algorithm</returns>
-        private  double GetAlphaM(int m)
-        {
-            switch (m)
-            {
-                case 16:
-                    return 0.673;
-                case 32:
-                    return 0.697;
-                case 64:
-                    return 0.709;
-                default:
-                    return 0.7213/(1 + (1.079 / m));
-            }
         }
 
         /// <summary>

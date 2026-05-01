@@ -50,17 +50,11 @@ namespace CardinalityEstimation
         ICardinalityEstimator<byte[]>, ICardinalityEstimatorMemory, IEquatable<ConcurrentCardinalityEstimator>, IDisposable
     {
         #region Private consts
-        /// <summary>
-        /// Max number of elements to hold in the direct representation
-        /// </summary>
-        private const int DirectCounterMaxElements = 100;
-
-        /// <summary>
-        /// Maximum number of bytes a string can encode to before <see cref="Add(string)"/>
-        /// falls back to a heap allocation. Strings whose UTF-8 max-byte-count is at or below
-        /// this threshold are encoded into a stackalloc buffer to avoid GC pressure.
-        /// </summary>
-        private const int StackallocByteThreshold = 256;
+        // DirectCounterMaxElements and StackallocByteThreshold moved to HllConstants
+        // so they can be shared with CardinalityEstimator. Aliased below as private
+        // consts to keep call sites readable.
+        private const int DirectCounterMaxElements = HllConstants.DirectCounterMaxElements;
+        private const int StackallocByteThreshold = HllConstants.StackallocByteThreshold;
         #endregion
 
         #region Private fields
@@ -158,7 +152,7 @@ namespace CardinalityEstimation
         /// False if direct count should be avoided and use always estimation, even for low cardinalities.
         /// </param>
         public ConcurrentCardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
-            : this(hashFunction, CreateEmptyState(b, useDirectCounting))
+            : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting))
         { }
 
         /// <summary>
@@ -173,8 +167,8 @@ namespace CardinalityEstimation
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
             m = 1 << bitsPerIndex;
-            alphaM = GetAlphaM(m);
-            subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+            alphaM = HllConstants.GetAlphaM(m);
+            subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
@@ -203,8 +197,8 @@ namespace CardinalityEstimation
                 bitsPerIndex = state.BitsPerIndex;
                 bitsForHll = (byte)(64 - bitsPerIndex);
                 m = 1 << bitsPerIndex;
-                alphaM = GetAlphaM(m);
-                subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+                alphaM = HllConstants.GetAlphaM(m);
+                subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
                 lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
                 hashFunction = other.hashFunction;
@@ -265,8 +259,8 @@ namespace CardinalityEstimation
             bitsPerIndex = state.BitsPerIndex;
             bitsForHll = (byte)(64 - bitsPerIndex);
             m = 1 << bitsPerIndex;
-            alphaM = GetAlphaM(m);
-            subAlgorithmSelectionThreshold = GetSubAlgorithmSelectionThreshold(bitsPerIndex);
+            alphaM = HllConstants.GetAlphaM(m);
+            subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
             lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
 
@@ -793,50 +787,6 @@ namespace CardinalityEstimation
             };
         }
 
-        /// <summary>
-        /// Creates state for an empty ConcurrentCardinalityEstimator
-        /// </summary>
-        private static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount)
-        {
-            if (b < 4 || b > 16)
-            {
-                throw new ArgumentOutOfRangeException(nameof(b), b, "Accuracy out of range, legal range is 4 <= BitsPerIndex <= 16");
-            }
-
-            return new CardinalityEstimatorState
-            {
-                BitsPerIndex = b,
-                DirectCount = useDirectCount ? new HashSet<ulong>() : null,
-                IsSparse = true,
-                LookupSparse = new Dictionary<ushort, byte>(),
-                LookupDense = null,
-                CountAdditions = 0,
-            };
-        }
-
-        private double GetSubAlgorithmSelectionThreshold(int bits)
-        {
-            switch (bits)
-            {
-                case 4: return 10;
-                case 5: return 20;
-                case 6: return 40;
-                case 7: return 80;
-                case 8: return 220;
-                case 9: return 400;
-                case 10: return 900;
-                case 11: return 1800;
-                case 12: return 3100;
-                case 13: return 6500;
-                case 14: return 11500;
-                case 15: return 20000;
-                case 16: return 50000;
-                case 17: return 120000;
-                case 18: return 350000;
-            }
-            throw new ArgumentOutOfRangeException(nameof(bits), "Unexpected number of bits (should never happen)");
-        }
-
         private bool AddElementHash(ulong hashCode)
         {
             lockSlim.EnterUpgradeableReadLock();
@@ -1065,21 +1015,6 @@ namespace CardinalityEstimation
             {
                 // Other instance is not using direct counter, make sure this instance doesn't either
                 directCount = null;
-            }
-        }
-
-        private double GetAlphaM(int m)
-        {
-            switch (m)
-            {
-                case 16:
-                    return 0.673;
-                case 32:
-                    return 0.697;
-                case 64:
-                    return 0.709;
-                default:
-                    return 0.7213 / (1 + (1.079 / m));
             }
         }
 
