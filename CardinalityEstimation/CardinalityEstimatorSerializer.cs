@@ -1,4 +1,4 @@
-﻿// /*  
+// /*  
 //     See https://github.com/saguiitay/CardinalityEstimation.
 //     The MIT License (MIT)
 // 
@@ -275,7 +275,7 @@ namespace CardinalityEstimation
             if (isDirectCount)
             {
                 int count = reader.ReadInt32();
-                // Must match CardinalityEstimator.DirectCounterMaxElements (100); a higher value
+                // Must match HllConstants.DirectCounterMaxElements (100); a higher value
                 // would mean the writer should have transitioned to the sparse/dense representation.
                 const int maxDirectCount = 100;
                 if (count < 0 || count > maxDirectCount)
