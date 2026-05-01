@@ -234,6 +234,9 @@ namespace CardinalityEstimation
             byte hashFunctionId;
             if (dataFormatMajorVersion >= 3)
             {
+                // Version 3.0 dropped the on-the-wire hashFunctionId byte: the hash function
+                // is now supplied by the caller (or defaults to XxHash128 in the
+                // CardinalityEstimator constructor below). Nothing additional to read here.
             }
             else if (dataFormatMajorVersion >= 2)
             {
