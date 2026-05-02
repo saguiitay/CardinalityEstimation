@@ -105,7 +105,7 @@ namespace CardinalityEstimation
         /// <summary>
         /// Lookup dictionary for the sparse representation of HLL buckets
         /// </summary>
-        private IDictionary<ushort, byte> lookupSparse;
+        private Dictionary<ushort, byte> lookupSparse;
 
         /// <summary>
         /// Max number of elements to hold in the sparse representation before switching to dense
@@ -770,19 +770,24 @@ namespace CardinalityEstimation
             if (isSparse)
             {
                 lookupSparse.TryGetValue(substream, out byte prevRank);
-                lookupSparse[substream] = Math.Max(prevRank, sigma);
-                changed = changed || (prevRank != sigma && lookupSparse[substream] == sigma);
-                if (lookupSparse.Count > sparseMaxElements)
+                if (sigma > prevRank)
                 {
-                    SwitchToDenseRepresentation();
+                    lookupSparse[substream] = sigma;
+                    if (lookupSparse.Count > sparseMaxElements)
+                    {
+                        SwitchToDenseRepresentation();
+                    }
                     changed = true;
                 }
             }
             else
             {
-                var prevMax = lookupDense[substream];
-                lookupDense[substream] = Math.Max(prevMax, sigma);
-                changed = changed || (prevMax != sigma && lookupDense[substream] == sigma);
+                ref var value = ref lookupDense[substream];
+                if (sigma > value)
+                {
+                    value = sigma;
+                    changed = true;
+                }
             }
             return changed;
         }
