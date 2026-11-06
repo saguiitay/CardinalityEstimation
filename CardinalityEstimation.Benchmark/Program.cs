@@ -9,7 +9,69 @@ var config = DefaultConfig.Instance
                 .AddJob(Job.Default.WithId("Core70").WithRuntime(CoreRuntime.Core70))
                 .AddJob(Job.Default.WithId("Core80").WithRuntime(CoreRuntime.Core80));
 
-BenchmarkRunner.Run<DifferentHashes>(config);
+if (args.Contains("--algorithms"))
+    BenchmarkRunner.Run<EstimationAlgorithms>(args: args.Where(arg => arg != "--algorithms").ToArray());
+else
+    BenchmarkRunner.Run<DifferentHashes>(config);
+
+[MemoryDiagnoser]
+public class EstimationAlgorithms
+{
+    [Params(EstimationAlgorithm.HyperLogLog, EstimationAlgorithm.HyperLogLogPlusPlus, EstimationAlgorithm.SuperLogLog)]
+    public EstimationAlgorithm Algorithm { get; set; }
+
+    [Params(10, 14)]
+    public int Bits { get; set; }
+
+    [Params(100, 1000, 100000)]
+    public int Cardinality { get; set; }
+
+    private CardinalityEstimator filled = null!;
+    private CardinalityEstimator other = null!;
+
+    private CardinalityEstimator Create() => new CardinalityEstimator(
+        Algorithm, CardinalityEstimation.Hash.Murmur3.GetHashCode, Bits);
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        filled = Create();
+        other = Create();
+        for (int i = 0; i < Cardinality; i++)
+        {
+            filled.Add(i);
+            other.Add(i + Cardinality / 2);
+        }
+    }
+
+    [Benchmark]
+    public CardinalityEstimator Add()
+    {
+        var estimator = Create();
+        for (int i = 0; i < Cardinality; i++)
+            estimator.Add(i);
+        return estimator;
+    }
+
+    [Benchmark]
+    public ulong Count() => filled.Count();
+
+    [Benchmark]
+    public CardinalityEstimator Merge()
+    {
+        var result = new CardinalityEstimator(filled);
+        result.Merge(other);
+        return result;
+    }
+
+    [Benchmark]
+    public byte[] Serialize()
+    {
+        using var stream = new MemoryStream();
+        new CardinalityEstimatorSerializer().Serialize(stream, filled, leaveOpen: true);
+        return stream.ToArray();
+    }
+}
 
 [MemoryDiagnoser]
 public class DifferentHashes

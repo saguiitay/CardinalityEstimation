@@ -57,6 +57,53 @@ var preciseEstimator = new CardinalityEstimator(b: 16);
 
 `b` must be in the range `[4, 16]`. The standard error for large cardinalities is approximately `1.04 * 2^(-b/2)`, and memory consumption is bounded by `2^b` bytes for the dense representation. The estimator gives **perfect** counts for the first 100 elements regardless of `b`, then transitions to a sparse representation, and finally to the dense HyperLogLog representation as cardinality grows.
 
+## Selecting an Algorithm
+
+The original constructors and default algorithm are unchanged. To opt in to another
+algorithm, use the new overload with an explicit `EstimationAlgorithm`:
+
+```csharp
+var plus = new CardinalityEstimator(
+    algorithm: EstimationAlgorithm.HyperLogLogPlusPlus, b: 14);
+
+var super = new CardinalityEstimator(
+    algorithm: EstimationAlgorithm.SuperLogLog, b: 14);
+
+using var concurrent = new ConcurrentCardinalityEstimator(
+    algorithm: EstimationAlgorithm.HyperLogLogPlusPlus, b: 14);
+```
+
+All algorithms support the existing primitive, string, byte-array, and memory-type
+`Add` overloads, custom hash functions, copies, merges, and `CountAdditions`.
+The `Algorithm` property identifies the selected algorithm. Exact counting of up
+to 100 distinct hashes remains enabled by default; pass `useDirectCounting: false`
+to estimate from the start.
+
+| Algorithm | Behavior and tradeoffs |
+| --- | --- |
+| `HyperLogLog` | The original implementation, including its existing interpolated bias correction and sparse/dense behavior. This remains the default. |
+| `HyperLogLogPlusPlus` | Uses 25-bit sparse precision, buffered sorted 32-bit entries, and linear counting while sparse. Promotes to `2^b` byte-sized dense registers when the estimated sparse storage cost exceeds the dense budget. Dense estimation uses six-nearest-neighbor bias correction and the published precision-dependent linear-counting thresholds. |
+| `SuperLogLog` | Uses `2^b` byte-sized registers after exact counting. Estimates from the lowest `floor(0.7 * 2^b)` ranks without modifying or discarding the stored registers. Uses SuperLogLog-specific empirical normalization, linear counting for small cardinalities, and a Poisson-model periodic-bias correction at `b >= 10`. |
+
+HLL++ primarily improves small-cardinality accuracy and sparse memory usage over
+the existing implementation, which already incorporates several HLL++ techniques.
+It is not a promise of better accuracy at every cardinality. SuperLogLog is an
+alternative, not an upgrade over HLL: its nominal large-cardinality standard error
+is approximately `1.05 / sqrt(2^b)`. These are statistical standard errors, not
+per-estimate error guarantees.
+
+SuperLogLog's normalization is calibrated for each supported precision using
+independent Poisson-distributed register maxima; the calibration recipe is recorded
+with the coefficients in the implementation. Registers retain the full rank range
+of the 64-bit hash, so no smaller maximum-cardinality bound is required. New
+algorithms saturate `Count()` at `ulong.MaxValue` if an estimate exceeds the return
+type's range.
+
+The implementations follow [Heule, Nunkesser and Hall (HLL++)](https://www.openproceedings.org/2013/conf/edbt/HeuleNH13.pdf)
+and [Durand and Flajolet (SuperLogLog)](https://algo.inria.fr/flajolet/Publications/DuFl03-LNCS.pdf).
+Algorithm support does not imply binary compatibility with sketches produced by
+other libraries or services.
+
 ## Hash Functions
 
 By default the estimator uses `XxHash128` (from `System.IO.Hashing`), which is fast and has excellent distribution properties. Two alternatives ship in the box:
@@ -119,6 +166,11 @@ ConcurrentCardinalityEstimator merged = shardEstimators.ParallelMerge();
 
 `ParallelMerge` returns a `ConcurrentCardinalityEstimator` and uses all available cores by default; pass `parallelismDegree` to cap it.
 
+Estimators must also use the same `Algorithm`. A cross-algorithm merge throws
+`ArgumentException` before changing the destination. Copies, concurrent snapshots,
+`SafeMerge`, and `ParallelMerge` preserve the selected algorithm. As before, callers
+are responsible for using the same hash function across all participants.
+
 ## Serialization
 
 Use `CardinalityEstimatorSerializer` to persist an estimator to a stream and restore it later (e.g. to checkpoint state, ship it across the wire, or store it in a cache):
@@ -140,6 +192,27 @@ using (var stream = File.OpenRead("estimator.bin"))
 ```
 
 The serializer uses a versioned binary format (see `DataFormatMajorVersion` / `DataFormatMinorVersion` in `CardinalityEstimatorSerializer`) so newer minor versions can read older payloads of the same major version.
+
+**Backward compatibility:** the default `HyperLogLog` estimator still writes the
+original **3.1** format, with unchanged layout. Existing serialized estimators
+continue to deserialize using the original algorithm and hashing rules.
+Only opt-in HLL++ and SuperLogLog estimators use format **4.1**, which includes
+algorithm identity and sparse precision. `AdvancedDataFormatMajorVersion` identifies
+this additional format. Older package versions cannot read 4.1 payloads; upgrade
+all readers before exchanging opt-in sketches in a rolling deployment.
+Hash functions are still supplied by the caller rather than serialized.
+
+## Algorithm Benchmarks
+
+Run the opt-in BenchmarkDotNet comparisons for add, count, merge, and serialization:
+
+```powershell
+dotnet run --project CardinalityEstimation.Benchmark -c Release --framework net10.0 -- --algorithms
+```
+
+The comparisons cover all three algorithms at multiple precisions and cardinalities,
+with allocation diagnostics. Running the benchmark project without `--algorithms`
+continues to run the existing hash-function benchmarks.
 
 ## Zero-Allocation / High-Performance
 
@@ -169,6 +242,14 @@ dotnet dotnet-coverage collect --output-format cobertura --output coverage.xml \
 The resulting `coverage.xml` is gitignored and can be fed into ReportGenerator, Codecov, or any Cobertura-aware viewer.CI does not currently collect coverage — this is a developer-local workflow.
 
 ## Release Notes
+
+### 1.16.0
+- Added opt-in HyperLogLog++ and SuperLogLog algorithms through `EstimationAlgorithm` constructor overloads.
+- Preserved existing constructors, default estimation behavior, and legacy 3.1 serialization.
+- Added format 4.1 for opt-in sketches; older readers must be upgraded before receiving them.
+- Supported both algorithms in concurrent estimators, copying, snapshots, and merge utilities.
+- Added deterministic accuracy and compatibility tests and BenchmarkDotNet algorithm comparisons.
+- Updated the package version to `1.16.0` and aligned assembly and file versions to `1.16.0.0`.
 
 ### 1.15.0
 - Hardened `CardinalityEstimatorSerializer` against DoS via crafted input.

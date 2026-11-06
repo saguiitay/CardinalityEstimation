@@ -615,7 +615,7 @@ namespace CardinalityEstimation.Test
             using var ms = new MemoryStream();
             using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
             {
-                bw.Write((ushort)(CardinalityEstimatorSerializer.DataFormatMajorVersion + 1));
+                bw.Write((ushort)(CardinalityEstimatorSerializer.AdvancedDataFormatMajorVersion + 1));
                 bw.Write((ushort)0);
             }
             ms.Position = 0;

@@ -156,5 +156,21 @@ namespace CardinalityEstimation
                 CountAdditions = 0,
             };
         }
+
+        internal static CardinalityEstimatorState CreateEmptyState(int b, bool useDirectCount, EstimationAlgorithm algorithm)
+        {
+            if (algorithm < EstimationAlgorithm.HyperLogLog || algorithm > EstimationAlgorithm.SuperLogLog)
+                throw new ArgumentOutOfRangeException(nameof(algorithm), algorithm, "Unknown estimation algorithm.");
+
+            var state = CreateEmptyState(b, useDirectCount);
+            state.Algorithm = algorithm;
+            if (algorithm != EstimationAlgorithm.HyperLogLog)
+            {
+                state.LookupSparse = null;
+                state.IsSparse = algorithm == EstimationAlgorithm.HyperLogLogPlusPlus &&
+                    ((1 << b) > HllPlusPlusSparse.BufferBudgetBytes || useDirectCount);
+            }
+            return state;
+        }
     }
 }
