@@ -55,6 +55,8 @@ namespace CardinalityEstimation
     /// <see cref="http://static.googleusercontent.com/external_content/untrusted_dlcp/research.google.com/en/us/pubs/archive/40671.pdf" />
     /// </summary>
     /// <remarks>
+    /// <para>The original constructor retains this behavior. Use the overload accepting
+    /// <see cref="EstimationAlgorithm"/> to opt in to HyperLogLog++ or SuperLogLog.</para>
     /// <para>1. This implementation is not thread-safe. For thread-safe operations, use <see cref="ConcurrentCardinalityEstimator"/>.</para>
     /// <para>2. By default, it uses the 128-bit XxHash128 hash function from System.IO.Hashing. 
     ///    For custom hash functions, provide your own delegate to the constructor.</para>
@@ -134,6 +136,9 @@ namespace CardinalityEstimation
         [NonSerialized]
         private GetHashCodeSpanDelegate hashFunctionSpan;
 
+        [System.Runtime.Serialization.OptionalField]
+        private AdvancedEstimatorSketch advancedSketch;
+
         #endregion
 
         #region Constructors
@@ -161,6 +166,16 @@ namespace CardinalityEstimation
         /// </exception>
         public CardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
             : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting))
+        { }
+
+        /// <summary>Creates an estimator using an explicitly selected algorithm.</summary>
+        /// <param name="algorithm">The algorithm to use. The original constructor retains its existing behavior.</param>
+        /// <param name="hashFunction">An optional 64-bit hash function.</param>
+        /// <param name="b">Dense register precision, in the range [4, 16].</param>
+        /// <param name="useDirectCounting">Whether to count up to 100 distinct hashes exactly.</param>
+        public CardinalityEstimator(EstimationAlgorithm algorithm, GetHashCodeDelegate hashFunction = null,
+            int b = 14, bool useDirectCounting = true)
+            : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting, algorithm))
         { }
 
         /// <summary>
@@ -194,6 +209,8 @@ namespace CardinalityEstimation
             hashFunction = other.hashFunction;
             hashFunctionSpan = other.hashFunctionSpan;
             CountAdditions = other.CountAdditions;
+            if (other.advancedSketch != null)
+                advancedSketch = new AdvancedEstimatorSketch(other.GetState());
         }
 
         /// <summary>
@@ -277,6 +294,13 @@ namespace CardinalityEstimation
             alphaM = HllConstants.GetAlphaM(m);
             subAlgorithmSelectionThreshold = HllConstants.GetSubAlgorithmSelectionThreshold(bitsPerIndex);
 
+            if (state.Algorithm != EstimationAlgorithm.HyperLogLog)
+            {
+                advancedSketch = new AdvancedEstimatorSketch(state);
+                CountAdditions = state.CountAdditions;
+                return;
+            }
+
             // Init the direct count
             directCount = state.DirectCount != null ? new HashSet<ulong>(state.DirectCount) : null;
 
@@ -319,6 +343,9 @@ namespace CardinalityEstimation
         /// </summary>
         /// <value>The count of all addition operations performed</value>
         public ulong CountAdditions { get; private set; }
+
+        /// <summary>Gets the estimation algorithm selected at construction.</summary>
+        public EstimationAlgorithm Algorithm => advancedSketch?.Algorithm ?? EstimationAlgorithm.HyperLogLog;
 
         /// <summary>
         /// Gets the byte-array hash function used by this estimator. Returned so that callers
@@ -541,6 +568,9 @@ namespace CardinalityEstimation
         /// </remarks>
         public ulong Count()
         {
+            if (advancedSketch != null)
+                return advancedSketch.Count();
+
             // If only a few elements have been seen, return the exact count
             if (directCount != null)
             {
@@ -606,12 +636,13 @@ namespace CardinalityEstimation
         /// <remarks>
         /// After merging, this estimator will provide a cardinality estimate equivalent to
         /// the union of both sets. The merge operation is commutative - the order doesn't matter.
-        /// Both estimators must have the same accuracy parameter (bitsPerIndex).
+        /// Both estimators must have the same accuracy parameter (bitsPerIndex) and algorithm.
         /// </remarks>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is null</exception>
         /// <exception cref="ArgumentOutOfRangeException">
         /// Thrown when <paramref name="other"/> has different accuracy/map sizes than this estimator
         /// </exception>
+        /// <exception cref="ArgumentException">Thrown when the estimation algorithms differ.</exception>
         public void Merge(CardinalityEstimator other)
         {
             if (other == null)
@@ -623,6 +654,16 @@ namespace CardinalityEstimation
             {
                 throw new ArgumentOutOfRangeException(nameof(other),
                     "Cannot merge CardinalityEstimator instances with different accuracy/map sizes");
+            }
+
+            if (Algorithm != other.Algorithm)
+                throw new ArgumentException("Cannot merge estimators using different algorithms.", nameof(other));
+
+            if (advancedSketch != null)
+            {
+                advancedSketch.Merge(other.advancedSketch);
+                CountAdditions += other.CountAdditions;
+                return;
             }
 
             CountAdditions += other.CountAdditions;
@@ -736,6 +777,9 @@ namespace CardinalityEstimation
         /// <returns>A <see cref="CardinalityEstimatorState"/> representing the current state</returns>
         internal CardinalityEstimatorState GetState()
         {
+            if (advancedSketch != null)
+                return advancedSketch.GetState(CountAdditions);
+
             return new CardinalityEstimatorState
             {
                 BitsPerIndex = bitsPerIndex,
@@ -754,6 +798,9 @@ namespace CardinalityEstimation
         /// <returns>True if the state was modified, false if the element was already represented</returns>
         private bool AddElementHash(ulong hashCode)
         {
+            if (advancedSketch != null)
+                return advancedSketch.Add(hashCode);
+
             var changed = false;
             if (directCount != null)
             {
@@ -861,6 +908,7 @@ namespace CardinalityEstimation
             }
 
             if (bitsPerIndex != other.bitsPerIndex ||
+                Algorithm != other.Algorithm ||
                 bitsForHll != other.bitsForHll ||
                 m != other.m ||
                 alphaM != other.alphaM ||
@@ -872,6 +920,9 @@ namespace CardinalityEstimation
             {
                 return false;
             }
+
+            if (advancedSketch != null)
+                return advancedSketch.EqualsSketch(other.advancedSketch);
 
             if ((lookupDense != null && other.lookupDense == null) ||
                 (lookupDense == null && other.lookupDense != null))

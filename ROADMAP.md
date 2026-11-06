@@ -1,7 +1,7 @@
 # CardinalityEstimation Library - Roadmap for Improvements
 
 ## Executive Summary
-The CardinalityEstimation library implements a sophisticated cardinality estimator using HyperLogLog with optimizations for small cardinalities (direct counting) and medium cardinalities (linear counting). While the core implementation is solid, there are several opportunities for improvement in terms of performance, usability, extensibility, and modern .NET capabilities.
+The CardinalityEstimation library implements a sophisticated cardinality estimator using HyperLogLog with optimizations for small cardinalities (direct counting) and medium cardinalities (linear counting). Opt-in HyperLogLog++ and SuperLogLog algorithms are also available without changing the original defaults or serialization format. While the core implementation is solid, there are several opportunities for improvement in terms of performance, usability, extensibility, and modern .NET capabilities.
 
 ## Current Strengths
 - ? Solid HyperLogLog implementation with bias correction
@@ -159,18 +159,29 @@ The CardinalityEstimation library implements a sophisticated cardinality estimat
 **Priority:** MEDIUM
 **Impact:** HIGH
 **Effort:** HIGH
+**Status:** PARTIALLY COMPLETED
 
 **Issues:**
-- Only supports HyperLogLog algorithm
-- No support for other cardinality estimation methods
-- Limited to single algorithm approach
+- Additional sketch families beyond HLL, HLL++, and SuperLogLog remain unsupported
 
 **Improvements:**
-- [ ] Implement HyperLogLog++ algorithm for improved accuracy
-- [ ] Add LogLog and SuperLogLog implementations
+- [x] Implement opt-in HyperLogLog++ with higher-precision sparse registers and nearest-neighbor bias correction
+- [x] Add opt-in SuperLogLog with corrected truncated-mean estimation
+- [ ] Add a standalone LogLog implementation
 - [ ] Implement MinHash for Jaccard similarity estimation
 - [ ] Add HeavyHitters/Count-Min Sketch integration
 - [ ] Create algorithm selection based on use case
+
+**Implementation Summary:**
+- Explicit `EstimationAlgorithm` constructor overloads on regular and concurrent estimators
+- Existing constructors, default estimates, and legacy 3.1 serialization remain unchanged
+- HLL++ uses fixed 25-bit sparse precision and promotes losslessly to dense registers
+- SuperLogLog retains full registers for merging and truncates only during estimation
+- Shared opt-in algorithm core preserves behavior across concurrent snapshots and copies
+- Opt-in sketches use a separate 4.1 format; older readers must be upgraded before receiving them
+- Cross-algorithm merges are rejected before mutation; automatic algorithm selection is not implemented
+- Deterministic tests cover statistical accuracy, representation transitions, merging, serialization, and concurrency
+- BenchmarkDotNet comparisons cover add, count, merge, and serialization
 
 ## Low Priority Improvements
 

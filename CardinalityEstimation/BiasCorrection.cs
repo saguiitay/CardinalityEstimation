@@ -115,6 +115,39 @@ namespace CardinalityEstimation
             return Math.Max(valueToCorrect - bias, 0);
         }
 
+        internal static double CorrectBiasNearestNeighbors(double estimate, int bits)
+        {
+            const int neighbors = 6;
+            Span<double> distances = stackalloc double[neighbors];
+            Span<double> biases = stackalloc double[neighbors];
+            distances.Fill(double.PositiveInfinity);
+            biases.Clear();
+            var raw = RawEstimate[bits - BitsIndexOffset];
+            var data = BiasData[bits - BitsIndexOffset];
+            // Scan rather than binary-search: the published empirical samples are not strictly sorted.
+            for (int i = 0; i < raw.Length; i++)
+            {
+                double distance = Math.Abs(raw[i] - estimate);
+                for (int j = 0; j < neighbors; j++)
+                {
+                    if (distance >= distances[j])
+                        continue;
+                    for (int k = neighbors - 1; k > j; k--)
+                    {
+                        distances[k] = distances[k - 1];
+                        biases[k] = biases[k - 1];
+                    }
+                    distances[j] = distance;
+                    biases[j] = data[i];
+                    break;
+                }
+            }
+            double sum = 0;
+            foreach (double bias in biases)
+                sum += bias;
+            return Math.Max(0, estimate - sum / neighbors);
+        }
+
         /// <summary>
         /// Gets the estimated bias for the given raw cardinality estimate.
         /// </summary>

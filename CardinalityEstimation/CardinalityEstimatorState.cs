@@ -43,6 +43,12 @@ namespace CardinalityEstimation
     /// <seealso cref="CardinalityEstimatorSerializer"/>
     internal class CardinalityEstimatorState
     {
+        /// <summary>The original algorithm is the zero/default value for legacy state.</summary>
+        public EstimationAlgorithm Algorithm;
+
+        /// <summary>Sorted HLL++ sparse entries: 25-bit index followed by a 6-bit rank.</summary>
+        public uint[] LookupSparseHighPrecision;
+
         /// <summary>
         /// Gets or sets the number of bits for indexing HLL sub-streams.
         /// The number of estimator buckets is 2^BitsPerIndex.

@@ -5,7 +5,7 @@
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId Condition=" '$(Configuration)' == 'Release-Signed' ">CardinalityEstimation.Signed</PackageId>
         <PackageId Condition=" '$(Configuration)' == 'Release' OR '$(Configuration)' == 'Debug' ">CardinalityEstimation</PackageId>
-        <Version>1.15.0</Version>
+        <Version>1.16.0</Version>
         <Description>A C# library to estimate the number of unique elements in a set, in a quick and memory-efficient manner, based on the work of Flajolet et al. and Huele et al. Signed version.</Description>
         <Authors>Oron Navon;Sagui Itay</Authors>
         <Company></Company>
@@ -14,25 +14,13 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Copyright>Copyright © Sagui Itay 2022</Copyright>
         <PackageTags>hyperloglog cardinality estimation loglog set c# cardinalityestimation</PackageTags>
-        <PackageReleaseNotes>Hardened CardinalityEstimatorSerializer against DoS via crafted input
-Switched target frameworks to net8.0/net10.0
-Updated System.IO.Hashing to 10.0.7
-Fixed O(n) ConcurrentCardinalityEstimator direct-count storage (ConcurrentBag -&gt; ConcurrentDictionary)
-Zero-allocation primitive Add overloads (stackalloc + span hash)
-Precomputed inverse-powers-of-two table in Count() (removes Math.Pow from hot loop)
-Bulk-write dense lookup array in serializer
-Fixed CardinalityEstimator.Merge(IEnumerable) double-counting CountAdditions for the seed element; copy constructor now preserves CountAdditions
-Fixed ConcurrentCardinalityEstimator span-delegate constructor silently discarding the supplied delegate
-Added null-argument validation to ConcurrentCardinalityEstimator.Add(string) and Add(byte[]) for parity with CardinalityEstimator
-Compute m via bit shift (1 &lt;&lt; bitsPerIndex) instead of (int)Math.Pow(2, bitsPerIndex) in constructors
-Documented the intentionally empty version-3 branch in CardinalityEstimatorSerializer.Read
-Consolidated duplicated constants (DirectCounterMaxElements, StackallocByteThreshold) and helpers (GetAlphaM, GetSubAlgorithmSelectionThreshold, CreateEmptyState) into HllConstants
-Honored parallelismDegree in ConcurrentCardinalityEstimator.ParallelMerge and removed dead ParallelQuery variable
-Replaced GetHashCode-based lock ordering in ConcurrentCardinalityEstimator.Merge/Equals with a unique per-instance ID to eliminate a deadlock window on hash collisions
-Exposed HashFunction/HashFunctionSpan properties on CardinalityEstimator and ConcurrentCardinalityEstimator and made cross-type conversions preserve the source hash functions losslessly
-Replaced unused coverlet.collector test package with a dotnet-coverage local tool manifest</PackageReleaseNotes>
-        <AssemblyVersion>1.15.0.0</AssemblyVersion>
-        <FileVersion>1.15.0.0</FileVersion>
+        <PackageReleaseNotes>Added opt-in HyperLogLog++ and SuperLogLog algorithms through EstimationAlgorithm constructor overloads
+Preserved existing constructors, default estimation behavior, and legacy 3.1 serialization
+Added 4.1 serialization for opt-in algorithms; older readers must be upgraded before receiving these sketches
+Supported both algorithms in concurrent estimators, copies, snapshots, and merge utilities
+Added deterministic accuracy and compatibility tests and BenchmarkDotNet algorithm comparisons</PackageReleaseNotes>
+        <AssemblyVersion>1.16.0.0</AssemblyVersion>
+        <FileVersion>1.16.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>

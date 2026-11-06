@@ -139,6 +139,9 @@ namespace CardinalityEstimation
         /// Tracks if this instance has been disposed
         /// </summary>
         private volatile bool disposed;
+
+        [System.Runtime.Serialization.OptionalField]
+        private AdvancedEstimatorSketch advancedSketch;
         #endregion
 
         #region Constructors
@@ -159,6 +162,16 @@ namespace CardinalityEstimation
         /// </param>
         public ConcurrentCardinalityEstimator(GetHashCodeDelegate hashFunction = null, int b = 14, bool useDirectCounting = true)
             : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting))
+        { }
+
+        /// <summary>Creates a thread-safe estimator using an explicitly selected algorithm.</summary>
+        /// <param name="algorithm">The algorithm to use. The original constructor retains its existing behavior.</param>
+        /// <param name="hashFunction">An optional 64-bit hash function.</param>
+        /// <param name="b">Dense register precision, in the range [4, 16].</param>
+        /// <param name="useDirectCounting">Whether to count up to 100 distinct hashes exactly.</param>
+        public ConcurrentCardinalityEstimator(EstimationAlgorithm algorithm, GetHashCodeDelegate hashFunction = null,
+            int b = 14, bool useDirectCounting = true)
+            : this(hashFunction, HllConstants.CreateEmptyState(b, useDirectCounting, algorithm))
         { }
 
         /// <summary>
@@ -215,6 +228,8 @@ namespace CardinalityEstimation
                 lockSlim = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
             instanceId = Interlocked.Increment(ref instanceIdCounter);
                 hashFunction = other.hashFunction;
+                if (state.Algorithm != EstimationAlgorithm.HyperLogLog)
+                    hashFunctionSpan = other.hashFunctionSpan;
                 sparseMaxElements = Math.Max(0, (m / 15) - 10);
 
                 InitializeFromState(other.hashFunction, state);
@@ -285,6 +300,13 @@ namespace CardinalityEstimation
 
         private void InitializeFromState(GetHashCodeDelegate hashFunction, CardinalityEstimatorState state)
         {
+            if (state.Algorithm != EstimationAlgorithm.HyperLogLog)
+            {
+                advancedSketch = new AdvancedEstimatorSketch(state);
+                countAdditions = (long)state.CountAdditions;
+                return;
+            }
+
             // Init the direct count
             if (state.DirectCount != null)
             {
@@ -327,6 +349,9 @@ namespace CardinalityEstimation
 
         #region Public properties
         public ulong CountAdditions => (ulong)Interlocked.Read(ref countAdditions);
+
+        /// <summary>Gets the estimation algorithm selected at construction.</summary>
+        public EstimationAlgorithm Algorithm => advancedSketch?.Algorithm ?? EstimationAlgorithm.HyperLogLog;
 
         /// <summary>
         /// Gets the byte-array hash function used by this estimator. Returned so that callers
@@ -548,6 +573,9 @@ namespace CardinalityEstimation
             lockSlim.EnterReadLock();
             try
             {
+                if (advancedSketch != null)
+                    return advancedSketch.Count();
+
                 // If only a few elements have been seen, return the exact count
                 if (directCount != null)
                 {
@@ -580,6 +608,15 @@ namespace CardinalityEstimation
             {
                 throw new ArgumentOutOfRangeException(nameof(other),
                     "Cannot merge ConcurrentCardinalityEstimator instances with different accuracy/map sizes");
+            }
+
+            if (Algorithm != other.Algorithm)
+                throw new ArgumentException("Cannot merge estimators using different algorithms.", nameof(other));
+
+            if (advancedSketch != null)
+            {
+                MergeAdvanced(other);
+                return;
             }
 
             // Lock both instances in a consistent order to prevent deadlocks. Use the unique
@@ -625,9 +662,18 @@ namespace CardinalityEstimation
                     "Cannot merge CardinalityEstimator instances with different accuracy/map sizes");
             }
 
+            if (Algorithm != state.Algorithm)
+                throw new ArgumentException("Cannot merge estimators using different algorithms.", nameof(other));
+
             lockSlim.EnterWriteLock();
             try
             {
+                if (advancedSketch != null)
+                {
+                    advancedSketch.Merge(new AdvancedEstimatorSketch(state));
+                    Interlocked.Add(ref countAdditions, (long)state.CountAdditions);
+                    return;
+                }
                 var tempEstimator = new ConcurrentCardinalityEstimator(hashFunction, state);
                 MergeInternal(tempEstimator);
             }
@@ -728,6 +774,8 @@ namespace CardinalityEstimation
                 {
                     throw new ArgumentException("All estimators must have the same bitsPerIndex parameter", nameof(estimators));
                 }
+                if (estimator.Algorithm != first.Algorithm)
+                    throw new ArgumentException("All estimators must use the same algorithm.", nameof(estimators));
             }
 
             if (estimatorList.Count == 1)
@@ -790,6 +838,9 @@ namespace CardinalityEstimation
 
         private CardinalityEstimatorState GetStateInternal()
         {
+            if (advancedSketch != null)
+                return advancedSketch.GetState(CountAdditions);
+
             HashSet<ulong> directCountSet = null;
             if (directCount != null)
             {
@@ -815,6 +866,18 @@ namespace CardinalityEstimation
 
         private bool AddElementHash(ulong hashCode)
         {
+            if (advancedSketch != null)
+            {
+                lockSlim.EnterWriteLock();
+                try
+                {
+                    return advancedSketch.Add(hashCode);
+                }
+                finally
+                {
+                    lockSlim.ExitWriteLock();
+                }
+            }
             lockSlim.EnterUpgradeableReadLock();
             try
             {
@@ -971,6 +1034,55 @@ namespace CardinalityEstimation
             return (ulong)Math.Round(e);
         }
 
+        private void MergeAdvanced(ConcurrentCardinalityEstimator other)
+        {
+            if (ReferenceEquals(this, other))
+            {
+                lockSlim.EnterWriteLock();
+                try
+                {
+                    Interlocked.Add(ref countAdditions, countAdditions);
+                }
+                finally
+                {
+                    lockSlim.ExitWriteLock();
+                }
+                return;
+            }
+
+            bool targetFirst = instanceId < other.instanceId;
+            if (targetFirst)
+                lockSlim.EnterWriteLock();
+            else
+                other.lockSlim.EnterReadLock();
+            try
+            {
+                if (targetFirst)
+                    other.lockSlim.EnterReadLock();
+                else
+                    lockSlim.EnterWriteLock();
+                try
+                {
+                    advancedSketch.Merge(other.advancedSketch);
+                    Interlocked.Add(ref countAdditions, (long)other.CountAdditions);
+                }
+                finally
+                {
+                    if (targetFirst)
+                        other.lockSlim.ExitReadLock();
+                    else
+                        lockSlim.ExitWriteLock();
+                }
+            }
+            finally
+            {
+                if (targetFirst)
+                    lockSlim.ExitWriteLock();
+                else
+                    other.lockSlim.ExitReadLock();
+            }
+        }
+
         private void MergeInternal(ConcurrentCardinalityEstimator other)
         {
             Interlocked.Add(ref countAdditions, (long)other.CountAdditions);
@@ -1082,6 +1194,7 @@ namespace CardinalityEstimation
             other.ThrowIfDisposed();
 
             if (bitsPerIndex != other.bitsPerIndex ||
+                Algorithm != other.Algorithm ||
                 bitsForHll != other.bitsForHll ||
                 m != other.m ||
                 Math.Abs(alphaM - other.alphaM) > double.Epsilon ||
@@ -1118,6 +1231,9 @@ namespace CardinalityEstimation
 
         private bool EqualsInternal(ConcurrentCardinalityEstimator other)
         {
+            if (advancedSketch != null)
+                return advancedSketch.EqualsSketch(other.advancedSketch);
+
             if ((lookupDense != null && other.lookupDense == null) ||
                 (lookupDense == null && other.lookupDense != null))
             {

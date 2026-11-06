@@ -46,11 +46,14 @@ namespace CardinalityEstimation
     public class CardinalityEstimatorSerializer
     {
         /// <summary>
-        /// Highest major version of the serialization format which this serializer can deserialize. 
-        /// A breaking change in the format requires a bump in major version, i.e. version 2.X cannot read 3.Y
+        /// Major version written for the original HyperLogLog algorithm.
+        /// Retained so existing estimators keep their original binary format.
         /// </summary>
         /// <value>The current major version supported by this serializer</value>
         public const ushort DataFormatMajorVersion = 3;
+
+        /// <summary>Major version used only for explicitly selected HLL++ and SuperLogLog estimators.</summary>
+        public const ushort AdvancedDataFormatMajorVersion = 4;
 
         /// <summary>
         /// Minor version of the serialization format. A non-breaking change should be marked by a bump in minor version, 
@@ -129,10 +132,16 @@ namespace CardinalityEstimation
             if (cardinalityEstimator == null)
                 throw new ArgumentNullException(nameof(cardinalityEstimator));
 
+            CardinalityEstimatorState data = cardinalityEstimator.GetState();
+
+            if (data.Algorithm != EstimationAlgorithm.HyperLogLog)
+            {
+                WriteAdvanced(writer, data);
+                return;
+            }
+
             writer.Write(DataFormatMajorVersion);
             writer.Write(DataFormatMinorVersion);
-
-            CardinalityEstimatorState data = cardinalityEstimator.GetState();
 
             writer.Write(data.BitsPerIndex);
             writer.Write((byte)(((data.IsSparse ? 1 : 0) << 1) + (data.DirectCount != null ? 1 : 0)));
@@ -230,6 +239,9 @@ namespace CardinalityEstimation
             int dataFormatMinorVersion = reader.ReadUInt16();
 
             AssertDataVersionCanBeRead(dataFormatMajorVersion, dataFormatMinorVersion);
+
+            if (dataFormatMajorVersion == AdvancedDataFormatMajorVersion)
+                return new CardinalityEstimator(hashFunction, ReadAdvanced(reader));
 
             byte hashFunctionId;
             if (dataFormatMajorVersion >= 3)
@@ -364,12 +376,113 @@ namespace CardinalityEstimation
         /// </remarks>
         private static void AssertDataVersionCanBeRead(int dataFormatMajorVersion, int dataFormatMinorVersion)
         {
-            if (dataFormatMajorVersion > DataFormatMajorVersion)
+            if (dataFormatMajorVersion > AdvancedDataFormatMajorVersion)
             {
                 throw new SerializationException(
                     string.Format("Incompatible data format, can't deserialize data version {0}.{1} (serializer version: {2}.{3})",
-                        dataFormatMajorVersion, dataFormatMinorVersion, DataFormatMajorVersion, DataFormatMinorVersion));
+                        dataFormatMajorVersion, dataFormatMinorVersion, AdvancedDataFormatMajorVersion, DataFormatMinorVersion));
             }
+        }
+
+        private static void WriteAdvanced(BinaryWriter writer, CardinalityEstimatorState data)
+        {
+            writer.Write(AdvancedDataFormatMajorVersion);
+            writer.Write(DataFormatMinorVersion);
+            writer.Write((byte)data.Algorithm);
+            writer.Write(data.BitsPerIndex);
+            writer.Write((byte)(data.Algorithm == EstimationAlgorithm.HyperLogLogPlusPlus
+                ? AdvancedEstimatorSketch.SparsePrecision : data.BitsPerIndex));
+            writer.Write((byte)((data.IsSparse ? 2 : 0) | (data.DirectCount != null ? 1 : 0)));
+            if (data.DirectCount != null)
+            {
+                writer.Write(data.DirectCount.Count);
+                foreach (ulong hash in data.DirectCount)
+                    writer.Write(hash);
+            }
+            else if (data.IsSparse)
+            {
+                writer.Write(data.LookupSparseHighPrecision.Length);
+                foreach (uint entry in data.LookupSparseHighPrecision)
+                    writer.Write(entry);
+            }
+            else
+            {
+                writer.Write(data.LookupDense.Length);
+                writer.Write(data.LookupDense);
+            }
+            writer.Write(data.CountAdditions);
+            writer.Flush();
+        }
+
+        private static CardinalityEstimatorState ReadAdvanced(BinaryReader reader)
+        {
+            var algorithm = (EstimationAlgorithm)reader.ReadByte();
+            if (algorithm != EstimationAlgorithm.HyperLogLogPlusPlus && algorithm != EstimationAlgorithm.SuperLogLog)
+                throw new InvalidDataException("Invalid serialized estimation algorithm.");
+            int bits = reader.ReadInt32();
+            if (bits < 4 || bits > 16)
+                throw new InvalidDataException("Serialized precision must be in the range [4, 16].");
+            int sparsePrecision = reader.ReadByte();
+            int expectedPrecision = algorithm == EstimationAlgorithm.HyperLogLogPlusPlus
+                ? AdvancedEstimatorSketch.SparsePrecision : bits;
+            if (sparsePrecision != expectedPrecision)
+                throw new InvalidDataException("Unsupported serialized sparse precision.");
+            byte flags = reader.ReadByte();
+            if ((flags & ~3) != 0 || (algorithm == EstimationAlgorithm.SuperLogLog && (flags & 2) != 0))
+                throw new InvalidDataException("Invalid serialized representation flags.");
+            var state = new CardinalityEstimatorState
+            {
+                Algorithm = algorithm,
+                BitsPerIndex = bits,
+                IsSparse = (flags & 2) != 0,
+            };
+            int count = reader.ReadInt32();
+            int m = 1 << bits;
+            if ((flags & 1) != 0)
+            {
+                if (count < 0 || count > HllConstants.DirectCounterMaxElements)
+                    throw new InvalidDataException("Invalid serialized direct-count length.");
+                state.DirectCount = new HashSet<ulong>();
+                for (int i = 0; i < count; i++)
+                {
+                    if (!state.DirectCount.Add(reader.ReadUInt64()))
+                        throw new InvalidDataException("Duplicate serialized direct-count hash.");
+                }
+            }
+            else if (state.IsSparse)
+            {
+                int limit = Math.Max(0, (m - HllPlusPlusSparse.BufferBudgetBytes) / sizeof(uint));
+                if (limit == 0 || count < 0 || count > limit)
+                    throw new InvalidDataException("Invalid serialized high-precision sparse length.");
+                state.LookupSparseHighPrecision = new uint[count];
+                uint previousIndex = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    uint entry = reader.ReadUInt32();
+                    uint index = entry >> 6;
+                    uint rank = entry & 63;
+                    if (index >= (1U << sparsePrecision) || rank == 0 || rank > 65 - sparsePrecision ||
+                        (i > 0 && index <= previousIndex))
+                        throw new InvalidDataException("Invalid serialized high-precision sparse register.");
+                    state.LookupSparseHighPrecision[i] = entry;
+                    previousIndex = index;
+                }
+            }
+            else
+            {
+                if (count != m)
+                    throw new InvalidDataException("Serialized dense length must equal the register count.");
+                state.LookupDense = reader.ReadBytes(count);
+                if (state.LookupDense.Length != count)
+                    throw new EndOfStreamException("Truncated serialized dense registers.");
+                foreach (byte rank in state.LookupDense)
+                {
+                    if (rank > 65 - bits)
+                        throw new InvalidDataException("Invalid serialized dense rank.");
+                }
+            }
+            state.CountAdditions = reader.ReadUInt64();
+            return state;
         }
     }
 }
