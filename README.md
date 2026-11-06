@@ -249,6 +249,7 @@ The resulting `coverage.xml` is gitignored and can be fed into ReportGenerator, 
 - Added format 4.1 for opt-in sketches; older readers must be upgraded before receiving them.
 - Supported both algorithms in concurrent estimators, copying, snapshots, and merge utilities.
 - Added deterministic accuracy and compatibility tests and BenchmarkDotNet algorithm comparisons.
+- Made legacy small-cardinality accuracy tests reproducible using multi-trial bias and RMSE checks instead of a random single-estimate error bound.
 - Updated the package version to `1.16.0` and aligned assembly and file versions to `1.16.0.0`.
 
 ### 1.15.0

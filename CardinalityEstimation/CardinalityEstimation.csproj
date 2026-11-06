@@ -18,7 +18,8 @@
 Preserved existing constructors, default estimation behavior, and legacy 3.1 serialization
 Added 4.1 serialization for opt-in algorithms; older readers must be upgraded before receiving these sketches
 Supported both algorithms in concurrent estimators, copies, snapshots, and merge utilities
-Added deterministic accuracy and compatibility tests and BenchmarkDotNet algorithm comparisons</PackageReleaseNotes>
+Added deterministic accuracy and compatibility tests and BenchmarkDotNet algorithm comparisons
+Made legacy small-cardinality accuracy tests reproducible using multi-trial bias and RMSE checks</PackageReleaseNotes>
         <AssemblyVersion>1.16.0.0</AssemblyVersion>
         <FileVersion>1.16.0.0</FileVersion>
         <IncludeSymbols>true</IncludeSymbols>

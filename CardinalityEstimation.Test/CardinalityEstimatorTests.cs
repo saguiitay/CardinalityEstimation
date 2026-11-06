@@ -161,14 +161,45 @@ namespace CardinalityEstimation.Test
             }
         }
 
-        [Fact]
-        public void TestAccuracySmallCardinality()
+        [Theory]
+        [InlineData(4, 0.26)]
+        [InlineData(14, 0.008125)]
+        [InlineData(16, 0.0040625)]
+        public void TestAccuracySmallCardinality(int bits, double standardError)
         {
-            for (var i = 1; i < 10000; i *= 2)
+            const int trials = 64;
+            for (int cardinality = 1; cardinality < 10000; cardinality *= 2)
             {
-                RunTest(0.26, i, 1.5);
-                RunTest(0.008125, i, 0.05);
-                RunTest(0.0040625, i, 0.05);
+                double sum = 0, squares = 0, worst = 0;
+                for (int trial = 0; trial < trials; trial++)
+                {
+                    int seed = 1729 + bits * 1000003 + cardinality * 67 + trial;
+                    var random = new Random(seed);
+                    var estimator = new CardinalityEstimator(b: bits);
+                    var member = new byte[ElementSizeInBytes];
+                    for (int i = 0; i < cardinality; i++)
+                    {
+                        random.NextBytes(member);
+                        estimator.Add(member);
+                    }
+                    ulong estimate = estimator.Count();
+                    if (cardinality <= 100)
+                        Assert.Equal((ulong)cardinality, estimate);
+                    double error = (double)estimate / cardinality - 1;
+                    sum += error;
+                    squares += error * error;
+                    worst = Math.Max(worst, Math.Abs(error));
+                }
+
+                double bias = sum / trials;
+                double rmse = Math.Sqrt(squares / trials);
+                string diagnostics = string.Format(
+                    "b={0}, n={1}, trials={2}: bias={3}, RMSE={4}, worst error={5}, nominal error={6}",
+                    bits, cardinality, trials, bias, rmse, worst, standardError);
+                output.WriteLine(diagnostics);
+                // Standard error describes the distribution, not a bound on every random estimate.
+                Assert.True(Math.Abs(bias) <= 0.75 * standardError + 1.0 / cardinality, diagnostics);
+                Assert.True(rmse <= 1.5 * standardError, diagnostics);
             }
         }
 
